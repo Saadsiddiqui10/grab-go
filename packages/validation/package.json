@@ -1,0 +1,33 @@
+{
+  "name": "@grabgo/validation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zod schemas shared by the API, the dashboards and the mobile app, so a form and its endpoint can never disagree.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json && node ../../scripts/finalize-esm.mjs",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@grabgo/types": "0.1.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "module": "dist/esm/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/index.js"
+    }
+  }
+}

@@ -1,0 +1,1208 @@
+// Grab & Go — PostgreSQL schema
+//
+// Naming is deliberately vertical-neutral: `Business`, `MenuItem`, `Order`. There
+// is no `coffee_orders` table, so adding bakeries or restaurants later is a
+// `BusinessType` value and some seed data, not a migration of the whole domain.
+//
+// Money is stored as an integer number of paisa (1 PKR = 100 paisa). No floats
+// touch a monetary column anywhere in this file.
+//
+// On roles: rather than generic `roles`/`permissions` join tables, authorisation
+// is modelled as a platform-level `UserRole` plus per-business `CafeStaff` rows.
+// Every access check in this product is "is this person staff at this cafe, and
+// at what level", which those two express directly; a generic RBAC engine would
+// be indirection with no current caller.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/* ------------------------------------------------------------------ identity */
+
+enum UserRole {
+  CUSTOMER
+  MERCHANT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum AuthProvider {
+  PASSWORD
+  PHONE_OTP
+  GOOGLE
+  APPLE
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String?    @unique
+  emailVerifiedAt DateTime?
+  phone           String?    @unique
+  phoneVerifiedAt DateTime?
+  passwordHash    String?
+  role            UserRole   @default(CUSTOMER)
+  status          UserStatus @default(ACTIVE)
+
+  /// Shareable invite code. Unique so it can be looked up directly.
+  referralCode String  @unique
+  /// Set once, at signup, when this account arrived through someone's code.
+  referredById String?
+
+  lastLoginAt DateTime?
+  suspendedAt DateTime?
+  suspendedReason String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  /// Soft delete: orders and merchant statements must survive account removal.
+  deletedAt   DateTime?
+
+  profile             UserProfile?
+  identities          AuthIdentity[]
+  sessions            Session[]
+  deviceTokens        DeviceToken[]
+  passwordResets      PasswordResetToken[]
+  orders              Order[]
+  payments            Payment[]
+  favourites          Favourite[]
+  savedAddresses      SavedAddress[]
+  pointsAccount       PointsAccount?
+  pointsTransactions  PointsTransaction[]
+  rewardRedemptions   RewardRedemption[]
+  referralsMade       Referral[]           @relation("Referrer")
+  referralReceived    Referral?            @relation("Referee")
+  referralRewards     ReferralReward[]
+  promoRedemptions    PromoRedemption[]
+  reviews             Review[]
+  notifications       Notification[]
+  notificationPrefs   NotificationPreference[]
+  staffRoles          CafeStaff[]
+  auditLogs           AuditLog[]
+  pickupVerifications PickupVerification[]
+  analyticsEvents     AnalyticsEvent[]
+  idempotencyRecords  IdempotencyRecord[]
+
+  @@index([status, role])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model UserProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  fullName  String
+  avatarUrl String?
+  cityId    String?
+  locale    String   @default("en")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city City? @relation(fields: [cityId], references: [id], onDelete: SetNull)
+
+  @@map("user_profiles")
+}
+
+/// One row per external identity, so a user can link Google and Apple to one account.
+model AuthIdentity {
+  id                String       @id @default(cuid())
+  userId            String
+  provider          AuthProvider
+  /// The provider's stable subject id (`sub`), never an email.
+  providerAccountId String
+  email             String?
+  createdAt         DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+/// A refresh-token family. The token itself is never stored, only its hash.
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String    @unique
+  userAgent        String?
+  ipAddress        String?
+  deviceId         String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  /// Set when this token is rotated, so replay of an old token is detectable.
+  replacedById     String?
+  createdAt        DateTime  @default(now())
+  lastUsedAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+enum OtpPurpose {
+  LOGIN
+  SIGNUP
+  VERIFY
+}
+
+/// Phone verification challenge. Codes are hashed and attempt-limited.
+model OtpChallenge {
+  id         String     @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    OtpPurpose
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([phone, createdAt])
+  @@map("otp_challenges")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model DeviceToken {
+  id         String         @id @default(cuid())
+  userId     String
+  token      String         @unique
+  platform   DevicePlatform
+  deviceId   String?
+  createdAt  DateTime       @default(now())
+  lastSeenAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+/* ----------------------------------------------------------------- geography */
+
+model City {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  countryCode String   @default("PK")
+  /// IANA zone. Opening hours are wall-clock facts and are resolved against this.
+  timezone    String   @default("Asia/Karachi")
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  areas          Area[]
+  businesses     Business[]
+  profiles       UserProfile[]
+  savedAddresses SavedAddress[]
+
+  @@map("cities")
+}
+
+model Area {
+  id        String   @id @default(cuid())
+  cityId    String
+  name      String
+  slug      String
+  latitude  Float
+  longitude Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  city           City           @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  businesses     Business[]
+  savedAddresses SavedAddress[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+  @@map("areas")
+}
+
+/* ---------------------------------------------------------------- businesses */
+
+enum BusinessType {
+  CAFE
+  RESTAURANT
+  BAKERY
+  FAST_FOOD
+  DESSERT
+  BUBBLE_TEA
+  OTHER
+}
+
+enum BusinessStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  TEMPORARILY_CLOSED
+}
+
+model Business {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  name        String
+  type        BusinessType   @default(CAFE)
+  status      BusinessStatus @default(PENDING_APPROVAL)
+  description String?
+  logoUrl     String?
+  coverImageUrl String?
+
+  addressLine String
+  areaId      String?
+  cityId      String
+  latitude    Float
+  longitude   Float
+  phone       String?
+  email       String?
+
+  /// Copied from the city at creation; a business can override it.
+  timezone String @default("Asia/Karachi")
+
+  /// Baseline "ready in ~N min" shown before an order exists.
+  prepTimeMinutes         Int @default(10)
+  /// Lead time the kitchen needs before the earliest pickup slot.
+  minLeadTimeMinutes      Int @default(10)
+  maxScheduleAheadMinutes Int @default(1440)
+  /// Null means no ceiling on concurrent in-flight orders.
+  maxConcurrentOrders     Int?
+  maxOrdersPerSlot        Int?
+  minimumOrderTotal       Int @default(0)
+
+  /// Economics, snapshotted onto each order so rate changes are not retroactive.
+  commissionBasisPoints Int @default(1000)
+  taxBasisPoints        Int @default(0)
+
+  acceptingOrders   Boolean @default(true)
+  temporarilyClosed Boolean @default(false)
+  loyaltyEnabled    Boolean @default(true)
+
+  priceTier Int      @default(2)
+  tags      String[] @default([])
+
+  ratingAverage Float @default(0)
+  ratingCount   Int   @default(0)
+
+  approvedAt    DateTime?
+  approvedById  String?
+  rejectionNote String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  city        City             @relation(fields: [cityId], references: [id])
+  area        Area?            @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  hours       BusinessHour[]
+  holidays    BusinessHoliday[]
+  staff       CafeStaff[]
+  categories  MenuCategory[]
+  menuItems   MenuItem[]
+  orders      Order[]
+  favourites  Favourite[]
+  reviews     Review[]
+  rewards     Reward[]
+  promotions  Promotion[]
+
+  @@index([cityId, status])
+  @@index([areaId])
+  @@index([status, acceptingOrders])
+  /// Bounding-box prefilter for "cafes near me" before exact distance ranking.
+  @@index([latitude, longitude])
+  @@map("businesses")
+}
+
+model BusinessHour {
+  id         String  @id @default(cuid())
+  businessId String
+  /// 0 = Sunday … 6 = Saturday, matching `Date#getDay`.
+  dayOfWeek  Int
+  /// Minutes since local midnight. Null on a closed day.
+  opensAt    Int?
+  /// A value <= opensAt means the cafe trades past midnight.
+  closesAt   Int?
+  isClosed   Boolean @default(false)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, dayOfWeek])
+  @@map("business_hours")
+}
+
+/// Date-specific override: a public holiday, Ramadan hours, or a one-off closure.
+model BusinessHoliday {
+  id         String   @id @default(cuid())
+  businessId String
+  /// Local calendar date, stored as `YYYY-MM-DD`.
+  date       String
+  name       String?
+  isClosed   Boolean  @default(true)
+  opensAt    Int?
+  closesAt   Int?
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, date])
+  @@map("business_holidays")
+}
+
+enum StaffRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+model CafeStaff {
+  id         String    @id @default(cuid())
+  businessId String
+  userId     String
+  staffRole  StaffRole @default(STAFF)
+  isActive   Boolean   @default(true)
+  invitedAt  DateTime  @default(now())
+  acceptedAt DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([userId, isActive])
+  @@map("cafe_staff")
+}
+
+/* ---------------------------------------------------------------------- menu */
+
+model MenuCategory {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  items    MenuItem[]
+
+  @@index([businessId, sortOrder])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id              String   @id @default(cuid())
+  businessId      String
+  categoryId      String
+  name            String
+  description     String?
+  imageUrl        String?
+  /// Paisa. Variant and modifier deltas are added on top at pricing time.
+  basePrice       Int
+  isAvailable     Boolean  @default(true)
+  /// Distinct from `isAvailable`: sold out is a today problem, not a menu change.
+  isSoldOut       Boolean  @default(false)
+  isPopular       Boolean  @default(false)
+  calories        Int?
+  prepTimeMinutes Int?
+  sortOrder       Int      @default(0)
+  tags            String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  business  Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category  MenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants  MenuItemVariant[]
+  modifiers MenuItemModifier[]
+  orderItems OrderItem[]
+
+  @@index([businessId, isAvailable])
+  @@index([categoryId, sortOrder])
+  @@map("menu_items")
+}
+
+/// A size or format choice. Exactly one applies to a line.
+model MenuItemVariant {
+  id          String  @id @default(cuid())
+  menuItemId  String
+  name        String
+  /// Signed: a small size may be priced below the base.
+  priceDelta  Int     @default(0)
+  isDefault   Boolean @default(false)
+  isAvailable Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  menuItem   MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([menuItemId])
+  @@map("menu_item_variants")
+}
+
+enum ModifierSelectionType {
+  SINGLE
+  MULTIPLE
+}
+
+/// A group of choices ("Milk", "Extras"), with its own selection rules.
+model MenuItemModifier {
+  id            String                @id @default(cuid())
+  menuItemId    String
+  name          String
+  selectionType ModifierSelectionType @default(SINGLE)
+  isRequired    Boolean               @default(false)
+  minSelections Int                   @default(0)
+  /// Null means unlimited; only meaningful for MULTIPLE.
+  maxSelections Int?
+  sortOrder     Int                   @default(0)
+
+  menuItem MenuItem                 @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  options  MenuItemModifierOption[]
+
+  @@index([menuItemId, sortOrder])
+  @@map("menu_item_modifiers")
+}
+
+model MenuItemModifierOption {
+  id          String  @id @default(cuid())
+  modifierId  String
+  name        String
+  priceDelta  Int     @default(0)
+  isDefault   Boolean @default(false)
+  isAvailable Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  modifier            MenuItemModifier    @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  orderItemModifiers  OrderItemModifier[]
+
+  @@index([modifierId, sortOrder])
+  @@map("menu_item_modifier_options")
+}
+
+/* -------------------------------------------------------------------- orders */
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  PICKED_UP
+  COMPLETED
+  CANCELLED_BY_CUSTOMER
+  CANCELLED_BY_CAFE
+  CANCELLED_BY_ADMIN
+  EXPIRED
+}
+
+enum OrderType {
+  PICKUP
+}
+
+enum PickupMode {
+  ASAP
+  SCHEDULED
+}
+
+enum ActorType {
+  CUSTOMER
+  MERCHANT
+  ADMIN
+  SYSTEM
+}
+
+enum OrderRejectionReason {
+  ITEM_UNAVAILABLE
+  TOO_BUSY
+  CLOSING_SOON
+  TECHNICAL_ISSUE
+  OTHER
+}
+
+enum DiscountFunding {
+  PLATFORM
+  MERCHANT
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  /// Human-readable reference shown to both sides, e.g. "G482173".
+  orderNumber String      @unique
+  businessId  String
+  userId      String
+  status      OrderStatus @default(PENDING)
+  type        OrderType   @default(PICKUP)
+
+  pickupMode       PickupMode @default(ASAP)
+  pickupAt         DateTime
+  estimatedReadyAt DateTime?
+  prepTimeMinutes  Int?
+
+  acceptedAt  DateTime?
+  preparingAt DateTime?
+  readyAt     DateTime?
+  pickedUpAt  DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  cancellationReason OrderRejectionReason?
+  cancellationNote   String?
+  customerNote       String?
+
+  /// Authoritative money, all in paisa, all computed server-side.
+  subtotal       Int
+  promoDiscount  Int    @default(0)
+  rewardDiscount Int    @default(0)
+  discountTotal  Int    @default(0)
+  tax            Int    @default(0)
+  total          Int
+  currency       String @default("PKR")
+
+  /// Economics snapshotted at order time so later rate changes are not retroactive.
+  commissionBasisPoints Int             @default(0)
+  platformCommission    Int             @default(0)
+  paymentProcessingFee  Int             @default(0)
+  merchantEarnings      Int             @default(0)
+  discountFundedBy      DiscountFunding @default(PLATFORM)
+
+  promotionId  String?
+  promoCode    String?
+  redemptionId String? @unique
+
+  pointsEarned     Int?
+  pointsAwardedAt  DateTime?
+
+  /// Single-use credential shown at the counter. Never logged.
+  pickupCode         String
+  pickupCodeAttempts Int    @default(0)
+
+  /// Makes a retried checkout idempotent per customer.
+  idempotencyKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business            Business             @relation(fields: [businessId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id])
+  items               OrderItem[]
+  statusEvents        OrderStatusEvent[]
+  payment             Payment?
+  pickupVerifications PickupVerification[]
+  review              Review?
+  promotion           Promotion?           @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  redemption          RewardRedemption?    @relation("OrderRedemption", fields: [redemptionId], references: [id], onDelete: SetNull)
+  promoRedemption     PromoRedemption?
+  pointsTransactions  PointsTransaction[]
+  qualifiedReferral   Referral?
+
+  @@unique([userId, idempotencyKey])
+  @@index([businessId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([status, pickupAt])
+  @@index([businessId, pickupAt])
+  @@map("orders")
+}
+
+/// A line is a *snapshot*: name and price are copied, not joined, so a menu edit
+/// tomorrow cannot rewrite what a customer was charged today.
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  menuItemId  String?
+  variantId   String?
+  name        String
+  imageUrl    String?
+  variantName String?
+  unitPrice   Int
+  quantity    Int
+  lineTotal   Int
+  notes       String?
+
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem?           @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  variant   MenuItemVariant?    @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  modifiers OrderItemModifier[]
+
+  @@index([orderId])
+  @@index([menuItemId])
+  @@map("order_items")
+}
+
+model OrderItemModifier {
+  id               String  @id @default(cuid())
+  orderItemId      String
+  modifierOptionId String?
+  modifierName     String
+  optionName       String
+  priceDelta       Int
+
+  orderItem OrderItem               @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  option    MenuItemModifierOption? @relation(fields: [modifierOptionId], references: [id], onDelete: SetNull)
+
+  @@index([orderItemId])
+  @@map("order_item_modifiers")
+}
+
+/// Append-only audit of every status change, including who caused it.
+model OrderStatusEvent {
+  id             String       @id @default(cuid())
+  orderId        String
+  status         OrderStatus
+  previousStatus OrderStatus?
+  actorType      ActorType
+  actorUserId    String?
+  note           String?
+  createdAt      DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_events")
+}
+
+enum PickupVerificationMethod {
+  CODE
+  QR
+}
+
+/// Every attempt, successful or not, so counter fraud leaves a trail.
+model PickupVerification {
+  id              String                   @id @default(cuid())
+  orderId         String
+  verifiedByUserId String?
+  method          PickupVerificationMethod @default(CODE)
+  succeeded       Boolean
+  ipAddress       String?
+  createdAt       DateTime                 @default(now())
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  verifiedBy User? @relation(fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@map("pickup_verifications")
+}
+
+/* ------------------------------------------------------------------ payments */
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  WALLET
+  BANK_TRANSFER
+  APPLE_PAY
+  GOOGLE_PAY
+  CASH_ON_PICKUP
+}
+
+enum PaymentTransactionType {
+  AUTHORIZATION
+  CAPTURE
+  CHARGE
+  REFUND
+  VOID
+}
+
+/// No card data is stored — only the provider's opaque references.
+model Payment {
+  id       String        @id @default(cuid())
+  orderId  String        @unique
+  userId   String
+  provider String
+  method   PaymentMethod
+  status   PaymentStatus @default(PENDING)
+  amount   Int
+  currency String        @default("PKR")
+
+  providerPaymentId String?
+  providerReference String?
+  failureReason     String?
+
+  authorizedAt   DateTime?
+  paidAt         DateTime?
+  refundedAmount Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order        Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id])
+  transactions PaymentTransaction[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentTransaction {
+  id                String                 @id @default(cuid())
+  paymentId         String
+  type              PaymentTransactionType
+  status            PaymentStatus
+  amount            Int
+  providerReference String?
+  /// Raw provider response, retained for reconciliation and dispute handling.
+  rawPayload        Json?
+  createdAt         DateTime               @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@map("payment_transactions")
+}
+
+/* ----------------------------------------------------------------- favourites */
+
+model Favourite {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+  @@map("favourites")
+}
+
+model SavedAddress {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String
+  addressLine String
+  areaId      String?
+  cityId      String
+  latitude    Float?
+  longitude   Float?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city City  @relation(fields: [cityId], references: [id])
+  area Area? @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+/* ------------------------------------------------------------------- loyalty */
+
+enum PointsTransactionType {
+  ORDER_EARNED
+  REFERRAL_BONUS
+  PROMOTION
+  REWARD_REDEMPTION
+  ADMIN_ADJUSTMENT
+  REFUND_REVERSAL
+  EXPIRY
+}
+
+/// Cached aggregates over `PointsTransaction`.
+///
+/// The ledger remains the source of truth; these columns exist so the home screen
+/// does not sum a lifetime of rows on every render. They are only ever written in
+/// the same transaction as the ledger row that moved them, and a reconciliation
+/// job can rebuild them from the ledger at any time.
+model PointsAccount {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  balance          Int      @default(0)
+  lifetimeEarned   Int      @default(0)
+  lifetimeRedeemed Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions PointsTransaction[]
+
+  @@map("points_accounts")
+}
+
+model PointsTransaction {
+  id            String                @id @default(cuid())
+  accountId     String
+  userId        String
+  /// Signed: positive earns, negative redemptions and reversals.
+  amount        Int
+  type          PointsTransactionType
+  description   String
+  referenceType String?
+  referenceId   String?
+  orderId       String?
+  /// Running balance after this entry, so history renders without re-summing.
+  balanceAfter  Int
+  expiresAt     DateTime?
+  expiredAt     DateTime?
+  createdAt     DateTime              @default(now())
+
+  account PointsAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order   Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([accountId, createdAt])
+  /// One earn row per order, enforced at the database rather than in a service.
+  @@unique([orderId, type])
+  @@map("points_transactions")
+}
+
+enum RewardType {
+  FIXED_DISCOUNT
+  PERCENTAGE_DISCOUNT
+  FREE_ITEM
+}
+
+model Reward {
+  id                  String   @id @default(cuid())
+  name                String
+  description         String?
+  imageUrl            String?
+  pointsRequired      Int
+  type                RewardType
+  discountAmount      Int?
+  discountPercentage  Float?
+  maxDiscountAmount   Int?
+  /// For FREE_ITEM: which menu items this reward covers.
+  freeItemMenuItemIds String[] @default([])
+  /// Null means redeemable at any cafe.
+  businessId          String?
+  expiresAt           DateTime?
+  usageLimit          Int?
+  usageCount          Int      @default(0)
+  isActive            Boolean  @default(true)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  business    Business?          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  redemptions RewardRedemption[]
+
+  @@index([isActive, pointsRequired])
+  @@map("rewards")
+}
+
+enum RedemptionStatus {
+  ISSUED
+  APPLIED
+  CONSUMED
+  EXPIRED
+  REVOKED
+}
+
+model RewardRedemption {
+  id         String           @id @default(cuid())
+  userId     String
+  rewardId   String
+  status     RedemptionStatus @default(ISSUED)
+  pointsSpent Int
+  code       String           @unique
+  expiresAt  DateTime?
+  appliedAt  DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward          Reward           @relation(fields: [rewardId], references: [id])
+  order           Order?           @relation("OrderRedemption")
+  referralRewards ReferralReward[]
+
+  @@index([userId, status])
+  @@map("reward_redemptions")
+}
+
+/* ----------------------------------------------------------------- referrals */
+
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+  REJECTED
+}
+
+model Referral {
+  id         String         @id @default(cuid())
+  referrerId String
+  /// One row per referred account: an account can only ever be referred once.
+  refereeId  String         @unique
+  code       String
+  status     ReferralStatus @default(PENDING)
+  signedUpAt DateTime       @default(now())
+  qualifiedAt DateTime?
+  rewardedAt  DateTime?
+  /// The referee order that satisfied the qualification rule.
+  qualifyingOrderId String? @unique
+  rejectionReason   String?
+
+  /// Abuse signals captured at signup. The IP is hashed, never stored raw.
+  deviceId String?
+  ipHash   String?
+
+  createdAt DateTime @default(now())
+
+  referrer        User             @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referee         User             @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+  qualifyingOrder Order?           @relation(fields: [qualifyingOrderId], references: [id], onDelete: SetNull)
+  rewards         ReferralReward[]
+
+  @@index([referrerId, status])
+  @@index([deviceId])
+  @@map("referrals")
+}
+
+enum ReferralRewardKind {
+  REFERRER
+  REFEREE
+}
+
+model ReferralReward {
+  id                 String             @id @default(cuid())
+  referralId         String
+  userId             String
+  kind               ReferralRewardKind
+  rewardRedemptionId String?
+  pointsAwarded      Int                @default(0)
+  issuedAt           DateTime           @default(now())
+
+  referral   Referral          @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redemption RewardRedemption? @relation(fields: [rewardRedemptionId], references: [id], onDelete: SetNull)
+
+  /// A given referral pays out at most once per side.
+  @@unique([referralId, kind])
+  @@index([userId])
+  @@map("referral_rewards")
+}
+
+/* ---------------------------------------------------------------- promotions */
+
+enum PromotionType {
+  FIXED_DISCOUNT
+  PERCENTAGE_DISCOUNT
+}
+
+enum PromotionScope {
+  PLATFORM
+  BUSINESS
+  REFERRAL
+}
+
+model Promotion {
+  id                String          @id @default(cuid())
+  code              String          @unique
+  description       String?
+  type              PromotionType
+  scope             PromotionScope  @default(PLATFORM)
+  /// Paisa for FIXED_DISCOUNT, percent for PERCENTAGE_DISCOUNT.
+  value             Float
+  maxDiscountAmount Int?
+  minimumOrderTotal Int             @default(0)
+  businessId        String?
+  startsAt          DateTime?
+  endsAt            DateTime?
+  usageLimit        Int?
+  usageCount        Int             @default(0)
+  perUserLimit      Int?
+  firstOrderOnly    Boolean         @default(false)
+  fundedBy          DiscountFunding @default(PLATFORM)
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  business    Business?         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  redemptions PromoRedemption[]
+  orders      Order[]
+
+  @@index([isActive, endsAt])
+  @@map("promotions")
+}
+
+model PromoRedemption {
+  id             String   @id @default(cuid())
+  promotionId    String
+  userId         String
+  orderId        String   @unique
+  discountAmount Int
+  createdAt      DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId, userId])
+  @@map("promo_redemptions")
+}
+
+/* ------------------------------------------------------------------- reviews */
+
+model Review {
+  id         String   @id @default(cuid())
+  /// Required: only a real, collected order can be reviewed.
+  orderId    String   @unique
+  businessId String
+  userId     String
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@map("reviews")
+}
+
+/* ------------------------------------------------------------- notifications */
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationTopic {
+  ORDER_UPDATES
+  LOYALTY
+  REFERRALS
+  PROMOTIONS
+  PRODUCT_NEWS
+}
+
+model Notification {
+  id      String              @id @default(cuid())
+  userId  String
+  topic   NotificationTopic
+  channel NotificationChannel @default(PUSH)
+  title   String
+  body    String
+  data    Json?
+  sentAt  DateTime?
+  readAt  DateTime?
+  error   String?
+  createdAt DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id      String              @id @default(cuid())
+  userId  String
+  topic   NotificationTopic
+  channel NotificationChannel
+  enabled Boolean             @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topic, channel])
+  @@map("notification_preferences")
+}
+
+/* ------------------------------------------------------- platform operations */
+
+model PlatformSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+/// Records privileged actions with before/after values.
+model AuditLog {
+  id            String    @id @default(cuid())
+  actorUserId   String?
+  actorType     ActorType @default(ADMIN)
+  action        String
+  targetType    String
+  targetId      String?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  sessionId  String?
+  event      String
+  properties Json?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([event, occurredAt])
+  @@index([userId, occurredAt])
+  @@map("analytics_events")
+}
+
+/// Stores the response of a completed mutation so a retried request replays it
+/// instead of performing the action twice.
+model IdempotencyRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  key        String
+  endpoint   String
+  statusCode Int
+  response   Json
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint, key])
+  @@index([createdAt])
+  @@map("idempotency_records")
+}

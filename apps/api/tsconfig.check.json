@@ -1,0 +1,10 @@
+{
+  // Typechecks everything, including the seed script, which the build config
+  // excludes because it is run with tsx rather than compiled.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["prisma/**/*.ts", "src/**/*.ts"]
+}

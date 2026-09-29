@@ -1,0 +1,91 @@
+{
+  "expo": {
+    "name": "Grab & Go",
+    "slug": "grab-and-go",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "grabgo",
+    "userInterfaceStyle": "automatic",
+    "primaryColor": "#F2571F",
+    "icon": "./assets/icon.png",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.saadsiddiqui10.grabandgo",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Grab & Go uses your location to show cafes near you and sort them by distance. You can browse without it and pick an area instead.",
+        "NSCameraUsageDescription": "Used only to scan a Grab & Go pickup code.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.saadsiddiqui10.grabandgo",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F2571F"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Grab & Go uses your location to find cafes near you."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F2571F"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#14100E",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#0D0A08"
+          }
+        }
+      ],
+      "@maplibre/maplibre-react-native",
+      "expo-image",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "apiUrl": "http://localhost:4000/api/v1",
+      "realtimeUrl": "http://localhost:4000",
+      "eas": {
+        "projectId": "f9df4263-2bc6-4c49-a7c1-a58f41ce03b9"
+      }
+    },
+    "owner": "saadsiddiqui10"
+  }
+}

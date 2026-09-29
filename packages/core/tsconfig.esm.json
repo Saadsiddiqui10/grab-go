@@ -1,0 +1,16 @@
+{
+  // Second output: the same sources emitted as ES modules.
+  //
+  // The CommonJS build is what the Node API and Metro consume. Bundlers need
+  // ESM, because `export *` compiled to CommonJS becomes a runtime
+  // `__exportStar` loop that esbuild and Rollup cannot analyse statically —
+  // which leaves them seeing no named exports at all.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "dist/esm",
+    "declaration": false,
+    "declarationMap": false
+  }
+}

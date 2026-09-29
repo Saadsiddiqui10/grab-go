@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["../../node_modules/tsx/dist/cli.mjs", "watch", "src/index.ts"],
+      "cwd": "apps/api",
+      "port": 4000,
+      "url": "http://localhost:4000"
+    },
+    {
+      "name": "merchant",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js"],
+      "cwd": "apps/merchant-dashboard",
+      "port": 5173
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js"],
+      "cwd": "apps/admin-dashboard",
+      "port": 5174
+    }
+  ]
+}

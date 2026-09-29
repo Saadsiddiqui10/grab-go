@@ -1,0 +1,755 @@
+/*
+ * Grab & Go — dashboard styles.
+ *
+ * The same tokens the mobile app uses, expressed as CSS custom properties. Both
+ * dashboards import this once; components below reference variables only, so a
+ * brand change is a single edit in `@grabgo/config`.
+ *
+ * Dark mode follows the operating system. No toggle: a cafe dashboard runs on
+ * whatever device is on the counter, and matching the OS is the least surprising
+ * behaviour.
+ */
+
+:root {
+  /* --- brand ramps ------------------------------------------------------ */
+  --espresso-950: #0d0a08;
+  --espresso-900: #14100e;
+  --espresso-800: #221a16;
+  --espresso-700: #3a2c25;
+  --espresso-600: #5a473d;
+  --espresso-500: #7c6659;
+  --espresso-400: #a08d80;
+  --espresso-300: #c4b5a9;
+  --espresso-200: #e2d8cf;
+  --espresso-100: #f1ebe5;
+  --espresso-50: #faf6f2;
+
+  --ember-700: #b8340f;
+  --ember-600: #d9411a;
+  --ember-500: #f2571f;
+  --ember-400: #ff7a3d;
+  --ember-100: #ffe6d9;
+  --ember-50: #fff3ed;
+
+  --mint-700: #087a53;
+  --mint-600: #0e9b6b;
+  --mint-500: #12b981;
+  --mint-100: #d6f5e9;
+
+  --amber-600: #d08704;
+  --amber-500: #f5a524;
+  --amber-100: #fef0d5;
+
+  --berry-600: #c62a2f;
+  --berry-500: #e5484d;
+  --berry-100: #fde5e6;
+
+  --ocean-600: #1d4fd7;
+  --ocean-500: #3b6ff5;
+  --ocean-100: #e3ebfe;
+
+  /* --- semantic (light) ------------------------------------------------- */
+  --color-background: var(--espresso-50);
+  --color-surface: #ffffff;
+  --color-surface-muted: var(--espresso-100);
+  --color-surface-inverse: var(--espresso-900);
+  --color-border: var(--espresso-200);
+  --color-border-strong: var(--espresso-300);
+  --color-text-primary: var(--espresso-900);
+  --color-text-secondary: var(--espresso-600);
+  --color-text-muted: var(--espresso-500);
+  --color-text-inverse: #ffffff;
+  --color-primary: var(--ember-500);
+  --color-primary-pressed: var(--ember-600);
+  --color-primary-muted: var(--ember-100);
+  --color-primary-subtle: var(--ember-50);
+  --color-success: var(--mint-600);
+  --color-success-muted: var(--mint-100);
+  --color-warning: var(--amber-500);
+  --color-warning-muted: var(--amber-100);
+  --color-danger: var(--berry-500);
+  --color-danger-muted: var(--berry-100);
+  --color-info: var(--ocean-500);
+  --color-info-muted: var(--ocean-100);
+  --color-overlay: rgba(20, 16, 14, 0.5);
+
+  /* --- scale ------------------------------------------------------------ */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+  --space-xxxl: 40px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 2px 8px rgba(28, 18, 16, 0.06);
+  --shadow-md: 0 6px 16px rgba(28, 18, 16, 0.1);
+  --shadow-lg: 0 12px 28px rgba(28, 18, 16, 0.14);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', monospace;
+
+  --transition: 160ms cubic-bezier(0.2, 0, 0, 1);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: var(--espresso-950);
+    --color-surface: var(--espresso-900);
+    --color-surface-muted: var(--espresso-800);
+    --color-surface-inverse: var(--espresso-50);
+    --color-border: var(--espresso-800);
+    --color-border-strong: var(--espresso-700);
+    --color-text-primary: var(--espresso-50);
+    --color-text-secondary: var(--espresso-300);
+    --color-text-muted: var(--espresso-400);
+    --color-text-inverse: var(--espresso-900);
+    --color-primary: var(--ember-400);
+    --color-primary-pressed: var(--ember-500);
+    --color-primary-muted: rgba(242, 87, 31, 0.18);
+    --color-primary-subtle: rgba(242, 87, 31, 0.1);
+    --color-success-muted: rgba(18, 185, 129, 0.16);
+    --color-warning-muted: rgba(245, 165, 36, 0.16);
+    --color-danger-muted: rgba(229, 72, 77, 0.16);
+    --color-info-muted: rgba(59, 111, 245, 0.16);
+    --color-overlay: rgba(0, 0, 0, 0.65);
+
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* --- reset -------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+}
+
+/* Visible focus is a requirement, not a preference: dashboard staff work fast
+   and often with a keyboard. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* --- layout ------------------------------------------------------------- */
+
+.gg-shell {
+  display: grid;
+  grid-template-columns: 244px 1fr;
+  min-height: 100vh;
+}
+
+.gg-sidebar {
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-lg) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.gg-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 0 var(--space-sm);
+}
+
+.gg-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.gg-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gg-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 14px;
+  transition: background var(--transition), color var(--transition);
+}
+
+.gg-nav-link:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.gg-nav-link[aria-current='page'] {
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.gg-main {
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  min-width: 0;
+}
+
+.gg-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-base);
+  flex-wrap: wrap;
+}
+
+/* The dashboard is used on tablets propped by the till, so the sidebar
+   collapses to a horizontal bar rather than disappearing. */
+@media (max-width: 900px) {
+  .gg-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .gg-sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .gg-nav {
+    flex-direction: row;
+  }
+
+  .gg-main {
+    padding: var(--space-base);
+  }
+}
+
+/* --- surfaces ----------------------------------------------------------- */
+
+.gg-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.gg-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.gg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.gg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.gg-spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.gg-grid {
+  display: grid;
+  gap: var(--space-base);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.gg-muted {
+  color: var(--color-text-muted);
+}
+
+.gg-small {
+  font-size: 13px;
+}
+
+.gg-overline {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.gg-mono {
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+/* --- controls ----------------------------------------------------------- */
+
+.gg-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 40px;
+  padding: 0 var(--space-base);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition);
+  white-space: nowrap;
+}
+
+.gg-button:hover:not(:disabled) {
+  background: var(--color-primary-pressed);
+}
+
+.gg-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gg-button--secondary {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+
+.gg-button--secondary:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.gg-button--ghost {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.gg-button--ghost:hover:not(:disabled) {
+  background: var(--color-primary-muted);
+}
+
+.gg-button--danger {
+  background: var(--color-danger);
+}
+
+.gg-button--danger:hover:not(:disabled) {
+  background: var(--berry-600);
+}
+
+.gg-button--lg {
+  min-height: 48px;
+  font-size: 15px;
+  padding: 0 var(--space-lg);
+}
+
+.gg-button--sm {
+  min-height: 32px;
+  font-size: 13px;
+  padding: 0 var(--space-md);
+}
+
+.gg-button--block {
+  width: 100%;
+}
+
+.gg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gg-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.gg-input,
+.gg-select,
+.gg-textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color var(--transition);
+}
+
+.gg-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.gg-input:focus,
+.gg-select:focus,
+.gg-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.gg-input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.gg-error {
+  font-size: 12px;
+  color: var(--color-danger);
+}
+
+.gg-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* --- badges ------------------------------------------------------------- */
+
+.gg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.gg-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* --- tables ------------------------------------------------------------- */
+
+.gg-table-wrap {
+  overflow-x: auto;
+}
+
+.gg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.gg-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding: var(--space-md) var(--space-base);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.gg-table td {
+  padding: var(--space-md) var(--space-base);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.gg-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.gg-table tbody tr:hover {
+  background: var(--color-surface-muted);
+}
+
+.gg-table--clickable tbody tr {
+  cursor: pointer;
+}
+
+/* --- board -------------------------------------------------------------- */
+
+.gg-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(260px, 1fr));
+  gap: var(--space-base);
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .gg-board {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .gg-board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gg-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.gg-column__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-xs);
+}
+
+.gg-ticket {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.gg-ticket--new {
+  border-left-color: var(--color-primary);
+}
+
+.gg-ticket--preparing {
+  border-left-color: var(--color-warning);
+}
+
+.gg-ticket--ready {
+  border-left-color: var(--color-success);
+}
+
+/* A new ticket pulses once so a barista notices it across the counter. */
+.gg-ticket--new {
+  animation: gg-arrive 480ms ease-out;
+}
+
+@keyframes gg-arrive {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-ticket--new {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.gg-ticket__code {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+/* --- misc --------------------------------------------------------------- */
+
+.gg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xxxl) var(--space-base);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* The spinner inside a loading button. */
+@keyframes gg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.gg-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-muted) 25%,
+    var(--color-border) 37%,
+    var(--color-surface-muted) 63%
+  );
+  background-size: 400% 100%;
+  animation: gg-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes gg-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.gg-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  display: grid;
+  place-items: center;
+  padding: var(--space-base);
+  z-index: 50;
+}
+
+.gg-dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-base);
+}
+
+.gg-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-xl);
+}
+
+.gg-auth__card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.gg-toast {
+  position: fixed;
+  bottom: var(--space-xl);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-inverse);
+  color: var(--color-text-inverse);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.gg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

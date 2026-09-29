@@ -1,0 +1,41 @@
+{
+  "name": "grab-and-go",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Grab & Go \u2014 Order ahead. Skip the line. Pickup-first ordering platform for cafes, launching in Karachi.",
+  "workspaces": [
+    "packages/*",
+    "apps/api",
+    "apps/merchant-dashboard",
+    "apps/admin-dashboard",
+    "apps/mobile"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build:packages": "npm run build -w @grabgo/types && npm run build -w @grabgo/config && npm run build -w @grabgo/core && npm run build -w @grabgo/validation && npm run build -w @grabgo/ui",
+    "build": "npm run build:packages && npm run build -w @grabgo/api && npm run build -w @grabgo/merchant-dashboard && npm run build -w @grabgo/admin-dashboard",
+    "clean": "node -e \"const {rmSync}=require('fs');['packages/types','packages/config','packages/core','packages/validation','packages/ui','apps/api','apps/merchant-dashboard','apps/admin-dashboard'].forEach(p=>rmSync(p+'/dist',{recursive:true,force:true}))\"",
+    "dev:api": "npm run dev -w @grabgo/api",
+    "dev:mobile": "npm run start -w @grabgo/mobile",
+    "dev:merchant": "npm run dev -w @grabgo/merchant-dashboard",
+    "dev:admin": "npm run dev -w @grabgo/admin-dashboard",
+    "db:generate": "npm run db:generate -w @grabgo/api",
+    "db:migrate": "npm run db:migrate -w @grabgo/api",
+    "db:deploy": "npm run db:deploy -w @grabgo/api",
+    "db:seed": "npm run db:seed -w @grabgo/api",
+    "db:reset": "npm run db:reset -w @grabgo/api",
+    "db:studio": "npm run db:studio -w @grabgo/api",
+    "setup": "npm install && npm run build:packages && npm run db:generate",
+    "test": "npm run test -w @grabgo/core && npm run test -w @grabgo/validation && npm run test -w @grabgo/api",
+    "test:core": "npm run test -w @grabgo/core",
+    "typecheck": "npm run build:packages && npm run typecheck -w @grabgo/api && npm run typecheck -w @grabgo/merchant-dashboard && npm run typecheck -w @grabgo/admin-dashboard && npm run typecheck -w @grabgo/mobile",
+    "verify": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

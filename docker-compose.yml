@@ -1,0 +1,42 @@
+# Local infrastructure for Grab & Go.
+#
+#   docker compose up -d
+#
+# Brings up Postgres on 5432 with the credentials in apps/api/.env.example.
+# Nothing else is containerised: the API and the two dashboards run from the
+# workspace so hot reload works, and the mobile app runs through Expo.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: grabgo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: grabgo
+      POSTGRES_PASSWORD: grabgo
+      POSTGRES_DB: grabgo
+      # Deterministic collation so ORDER BY behaves the same everywhere.
+      POSTGRES_INITDB_ARGS: '--locale-provider=icu --icu-locale=en-US'
+    ports:
+      - '5432:5432'
+    volumes:
+      - grabgo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U grabgo -d grabgo']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Handy for inspecting the database during development.
+  adminer:
+    image: adminer:5
+    container_name: grabgo-adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  grabgo-db-data:
