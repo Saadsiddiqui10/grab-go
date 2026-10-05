@@ -81,6 +81,7 @@ model User {
   orders              Order[]
   payments            Payment[]
   favourites          Favourite[]
+  partnerRequests     PartnerRequest[]
   savedAddresses      SavedAddress[]
   pointsAccount       PointsAccount?
   pointsTransactions  PointsTransaction[]
@@ -318,6 +319,13 @@ model Business {
   approvedById  String?
   rejectionNote String?
 
+  /// Set for cafes imported from OpenStreetMap ("node/123", "way/456"). Such a
+  /// listing stays PENDING_APPROVAL with ordering off until the cafe itself
+  /// signs up: it can be shown and requested, never ordered from.
+  osmId     String?   @unique
+  /// When an imported listing was handed to its real owner.
+  claimedAt DateTime?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -334,6 +342,7 @@ model Business {
   reviews     Review[]
   rewards     Reward[]
   promotions  Promotion[]
+  partnerRequests PartnerRequest[]
 
   @@index([cityId, status])
   @@index([areaId])
@@ -1205,4 +1214,20 @@ model IdempotencyRecord {
   @@unique([userId, endpoint, key])
   @@index([createdAt])
   @@map("idempotency_records")
+}
+
+/// A customer asking for a cafe that is not on Grab & Go yet. One per customer
+/// per cafe; the count ranks which cafes to approach first.
+model PartnerRequest {
+  id         String   @id @default(cuid())
+  businessId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([businessId])
+  @@map("partner_requests")
 }

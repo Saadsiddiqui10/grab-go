@@ -2,7 +2,7 @@
   "name": "grab-and-go",
   "version": "0.1.0",
   "private": true,
-  "description": "Grab & Go \u2014 Order ahead. Skip the line. Pickup-first ordering platform for cafes, launching in Karachi.",
+  "description": "Grab & Go — Order ahead. Skip the line. Pickup-first ordering platform for cafes, launching in Karachi.",
   "workspaces": [
     "packages/*",
     "apps/api",
@@ -14,6 +14,7 @@
     "node": ">=20.11"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-expo-ios.mjs",
     "build:packages": "npm run build -w @grabgo/types && npm run build -w @grabgo/config && npm run build -w @grabgo/core && npm run build -w @grabgo/validation && npm run build -w @grabgo/ui",
     "build": "npm run build:packages && npm run build -w @grabgo/api && npm run build -w @grabgo/merchant-dashboard && npm run build -w @grabgo/admin-dashboard",
     "clean": "node -e \"const {rmSync}=require('fs');['packages/types','packages/config','packages/core','packages/validation','packages/ui','apps/api','apps/merchant-dashboard','apps/admin-dashboard'].forEach(p=>rmSync(p+'/dist',{recursive:true,force:true}))\"",
@@ -25,6 +26,7 @@
     "db:migrate": "npm run db:migrate -w @grabgo/api",
     "db:deploy": "npm run db:deploy -w @grabgo/api",
     "db:seed": "npm run db:seed -w @grabgo/api",
+    "db:import-osm": "npm run db:import-osm -w @grabgo/api",
     "db:reset": "npm run db:reset -w @grabgo/api",
     "db:studio": "npm run db:studio -w @grabgo/api",
     "setup": "npm install && npm run build:packages && npm run db:generate",

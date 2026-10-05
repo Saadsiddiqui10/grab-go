@@ -1,4 +1,5 @@
 import type {
+  ListingSummary,
   AuthSession,
   AuthTokens,
   BusinessDetail,
@@ -182,6 +183,14 @@ export interface ReorderResponse {
   totals: OrderTotals;
   warnings: Array<{ code: string; message: string }>;
 }
+
+/** Cafes that are not on Grab & Go yet: shown and requested, never ordered. */
+export const listings = {
+  list: (tags?: string) =>
+    api.get<ListingSummary[]>('/listings', { query: tags ? { tags } : {} }),
+  get: (id: string) => api.get<ListingSummary>(`/listings/${id}`),
+  request: (id: string) => api.post<ListingSummary>(`/listings/${id}/request`),
+};
 
 export const orders = {
   quote: (body: {

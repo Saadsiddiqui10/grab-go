@@ -16,6 +16,7 @@ export const AuditAction = {
   BUSINESS_SUSPENDED: 'business.suspended',
   BUSINESS_REINSTATED: 'business.reinstated',
   BUSINESS_UPDATED: 'business.updated',
+  LISTING_CLAIMED: 'listing.claimed',
   USER_SUSPENDED: 'user.suspended',
   USER_RESTORED: 'user.restored',
   USER_DELETED: 'user.deleted',

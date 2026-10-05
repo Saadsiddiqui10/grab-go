@@ -7,6 +7,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import type {
+  ListingSummary,
   BusinessDetail,
   BusinessSummary,
   Menu,
@@ -22,6 +23,7 @@ import type {
 } from '@grabgo/types';
 import {
   catalog,
+  listings,
   orders as ordersApi,
   user as userApi,
   type CartQuoteResponse,
@@ -59,6 +61,8 @@ export const queryKeys = {
   notifications: ['notifications'] as const,
   notificationPreferences: ['notifications', 'preferences'] as const,
   profile: ['profile'] as const,
+  listings: (tags?: string) => ['listings', tags ?? 'all'] as const,
+  listing: (id: string) => ['listing', id] as const,
 } as const;
 
 /* ------------------------------------------------------------------ catalogue */
@@ -89,6 +93,47 @@ export function useDiscoverCafes(params: DiscoverParams) {
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 60 * 1000,
+  });
+}
+
+/** Every cafe the map can pin, in one page (discover caps a page at 50). */
+export function useMapCafes(params: DiscoverParams): UseQueryResult<BusinessSummary[]> {
+  return useQuery({
+    queryKey: ['map', params] as const,
+    queryFn: async () => (await catalog.discover({ ...params, limit: 50 })).items,
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Cafes on the map that are not on Grab & Go yet. */
+export function useListings(tags?: string): UseQueryResult<ListingSummary[]> {
+  return useQuery({
+    queryKey: queryKeys.listings(tags),
+    queryFn: () => listings.list(tags),
+    // Imported data changes rarely; requests are patched in by the mutation.
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useListing(id: string | undefined): UseQueryResult<ListingSummary> {
+  return useQuery({
+    queryKey: queryKeys.listing(id ?? ''),
+    queryFn: () => listings.get(id as string),
+    enabled: Boolean(id),
+  });
+}
+
+/** "I want to order here", reflected everywhere the listing is cached. */
+export function useRequestListing(): UseMutationResult<ListingSummary, Error, string> {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => listings.request(id),
+    onSuccess: (updated) => {
+      client.setQueryData(queryKeys.listing(updated.id), updated);
+      client.setQueriesData<ListingSummary[]>({ queryKey: ['listings'] }, (rows) =>
+        rows?.map((row) => (row.id === updated.id ? updated : row)),
+      );
+    },
   });
 }
 

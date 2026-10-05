@@ -2,8 +2,8 @@ import { useCallback, useState } from 'react';
 import { FlatList, Platform, Pressable, RefreshControl, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
-import { discoveryCategories } from '@grabgo/config';
 import type { BusinessSummary } from '@grabgo/types';
 import { useTheme } from '../../src/theme';
 import { greeting, firstName } from '../../src/lib/format';
@@ -18,7 +18,8 @@ import {
 import { ScrollScreen } from '../../src/components/ui/Screen';
 import { Text, SectionTitle } from '../../src/components/ui/Text';
 import { SearchInput } from '../../src/components/ui/Input';
-import { Chip } from '../../src/components/ui/Surface';
+import { IconButton } from '../../src/components/ui/Button';
+import { CategoryTabs } from '../../src/components/CategoryTabs';
 import { CafeCard } from '../../src/components/CafeCard';
 import { ActiveOrderBanner } from '../../src/components/OrderComponents';
 import { CafeCardSkeleton, EmptyState, ErrorState } from '../../src/components/ui/States';
@@ -35,6 +36,7 @@ export default function HomeScreen(): React.JSX.Element {
   const theme = useTheme();
   const router = useRouter();
   const client = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   const user = useAuthStore((state) => state.user);
   const origin = useLocationStore((state) => state.origin());
@@ -100,6 +102,9 @@ export default function HomeScreen(): React.JSX.Element {
     <ScrollScreen
       padded={false}
       footerSpace={Platform.OS === 'ios' ? 50 : 0}
+      // Tabs hide the header, so the screen owns the status-bar inset, as the
+      // other tab screens do.
+      contentContainerStyle={{ paddingTop: insets.top }}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -110,11 +115,20 @@ export default function HomeScreen(): React.JSX.Element {
       }
     >
       {/* ------------------------------------------------------------ header */}
-      <View style={{ paddingHorizontal: theme.spacing.base, paddingTop: theme.spacing.xxl }}>
-        <Text variant="title1">
-          {greeting()}
-          {user ? `, ${firstName(user.fullName)}` : ''} 👋
-        </Text>
+      <View style={{ paddingHorizontal: theme.spacing.base, paddingTop: theme.spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Text variant="title1" style={{ flex: 1 }}>
+            {greeting()}
+            {user ? `, ${firstName(user.fullName)}` : ''}
+          </Text>
+          <IconButton
+            icon="map-outline"
+            label="Show cafes on a map"
+            onPress={() => router.push('/map')}
+            tone="primary"
+            background={theme.colors.primaryMuted}
+          />
+        </View>
 
         <Pressable
           onPress={() => router.push('/location')}
@@ -164,24 +178,11 @@ export default function HomeScreen(): React.JSX.Element {
       ) : null}
 
       {/* -------------------------------------------------------- categories */}
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={discoveryCategories.filter((entry) => entry.isLive)}
-        keyExtractor={(entry) => entry.slug}
+      <CategoryTabs
+        selected={category}
+        onChange={setCategory}
         style={{ marginTop: theme.spacing.lg }}
-        contentContainerStyle={{
-          paddingHorizontal: theme.spacing.base,
-          gap: theme.spacing.sm,
-        }}
-        renderItem={({ item }) => (
-          <Chip
-            label={item.label}
-            icon={item.emoji}
-            selected={category === item.slug}
-            onPress={() => setCategory(category === item.slug ? null : item.slug)}
-          />
-        )}
+        contentContainerStyle={{ paddingHorizontal: theme.spacing.base }}
       />
 
       {/* ---------------------------------------------- location nudge (once) */}

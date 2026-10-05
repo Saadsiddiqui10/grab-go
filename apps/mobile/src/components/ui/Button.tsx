@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { byPlatform, minTouchTarget, useTheme } from '../../theme';
 import { tapFeedback } from '../../lib/feedback';
+import { useReducedMotion } from '../../lib/motion';
 import { Text } from './Text';
 
 /**
@@ -58,6 +59,7 @@ export function Button({
 }: ButtonProps): React.JSX.Element {
   const theme = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
 
   const isDisabled = disabled === true || loading;
 
@@ -97,7 +99,7 @@ export function Button({
   // iOS presses feel right with a subtle scale; Android's ripple already
   // communicates the press, so it stays flat.
   const animatePress = (toValue: number): void => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== 'ios' || reduceMotion) return;
     Animated.spring(scale, {
       toValue,
       useNativeDriver: true,

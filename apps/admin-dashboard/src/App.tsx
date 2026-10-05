@@ -6,6 +6,7 @@ import { ApiError, Badge, Button, Card, TextField } from '@grabgo/ui';
 import { useAdmin } from './store';
 import { UsersPage } from './pages/Users';
 import { BusinessesPage } from './pages/Businesses';
+import { ListingsPage } from './pages/Listings';
 import { OrdersPage } from './pages/Orders';
 import { LoyaltyPage } from './pages/Loyalty';
 
@@ -65,6 +66,7 @@ export function App(): React.JSX.Element {
                 />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/cafes" element={<BusinessesPage />} />
+                <Route path="/listings" element={<ListingsPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/loyalty" element={<LoyaltyPage />} />
                 <Route path="*" element={<Navigate to="/overview" replace />} />
@@ -104,6 +106,9 @@ function Sidebar(): React.JSX.Element {
         </NavLink>
         <NavLink className="gg-nav-link" to="/cafes">
           Cafes
+        </NavLink>
+        <NavLink className="gg-nav-link" to="/listings">
+          Listings
         </NavLink>
         <NavLink className="gg-nav-link" to="/users">
           Users

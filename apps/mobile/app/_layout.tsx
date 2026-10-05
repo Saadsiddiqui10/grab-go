@@ -106,8 +106,10 @@ function AppShell(): React.JSX.Element {
   useRealtime();
   usePushNotificationRouting();
 
-  // Register for push once signed in — asking before there is an order to be
-  // notified about earns a denial the app cannot recover from.
+  // Refresh the push token on sign-in, silently: this never shows the system
+  // prompt. Asking happens after an order is placed (see order-confirmed),
+  // because asking before there is anything to be notified about earns a
+  // denial the app cannot recover from.
   useEffect(() => {
     if (!isAuthenticated) return;
     void registerForPushNotifications();
@@ -191,6 +193,17 @@ function AppShell(): React.JSX.Element {
         options={{
           presentation: Platform.OS === 'ios' ? 'modal' : 'card',
           title: 'Choose your area',
+        }}
+      />
+      {/* A cafe that is not on Grab & Go yet: a native sheet over the map,
+          sized to its content, so the map stays in view behind it. */}
+      <Stack.Screen
+        name="listing/[id]"
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: 'fitToContents',
+          sheetGrabberVisible: true,
+          headerShown: false,
         }}
       />
     </Stack>

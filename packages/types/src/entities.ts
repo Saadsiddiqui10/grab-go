@@ -149,6 +149,9 @@ export interface BusinessSummary {
   coverImageUrl: string | null;
   areaName: string | null;
   cityName: string | null;
+  /** Pin position, so lists can be shown on a map without a detail fetch each. */
+  latitude: number;
+  longitude: number;
   rating: number | null;
   reviewCount: number;
   /** Median minutes from ACCEPTED to READY, used for "Ready in ~10 min". */
@@ -168,8 +171,6 @@ export interface BusinessSummary {
 export interface BusinessDetail extends BusinessSummary {
   description: string | null;
   addressLine: string;
-  latitude: number;
-  longitude: number;
   phone: string | null;
   openingHours: OpeningHour[];
   holidays: BusinessHoliday[];
@@ -540,4 +541,30 @@ export interface AdminAnalytics {
   topBusinesses: Array<{ businessId: string; name: string; orders: number; revenue: Paisa }>;
   topProducts: Array<{ menuItemId: string; name: string; quantity: number }>;
   ordersByDay: Array<{ date: string; orders: number; revenue: Paisa }>;
+}
+
+/**
+ * A cafe that is on the map but not on Grab & Go yet, imported from
+ * OpenStreetMap. It can be requested, never ordered from.
+ */
+export interface ListingSummary {
+  id: string;
+  name: string;
+  addressLine: string;
+  areaName: string | null;
+  latitude: number;
+  longitude: number;
+  tags: string[];
+  /** How many customers have asked for this cafe. */
+  requestCount: number;
+  /** Whether the signed-in viewer has asked; false when signed out. */
+  requestedByMe: boolean;
+}
+
+/** An imported listing as the admin sees it, ranked by demand. */
+export interface AdminListing extends ListingSummary {
+  osmId: string;
+  phone: string | null;
+  claimed: boolean;
+  status: BusinessStatus;
 }

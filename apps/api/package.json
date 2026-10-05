@@ -5,7 +5,7 @@
   "description": "Grab & Go API: REST + realtime, Fastify, Prisma, PostgreSQL.",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file=.env src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -16,7 +16,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx --env-file=.env prisma/seed.ts",
+    "db:import-osm": "tsx --env-file=.env prisma/import-osm.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

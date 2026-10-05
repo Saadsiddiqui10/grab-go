@@ -53,7 +53,7 @@ export function PointsCard({
               label={`${summary.pointsToNextReward ?? 0} points to your next reward`}
             />
             <Text variant="footnote" style={{ color: theme.colors.textInverse, opacity: 0.8 }}>
-              {summary.pointsToNextReward} points until {summary.nextReward?.name} 🎉
+              {summary.pointsToNextReward} points until {summary.nextReward?.name}
             </Text>
           </>
         ) : (

@@ -10,10 +10,10 @@ import { Text } from '../../src/components/ui/Text';
 /**
  * Bottom navigation.
  *
- * The same five destinations on both platforms, presented the way each expects:
- * iOS gets a translucent blurred bar that content scrolls under, Android an
- * opaque surface with a hairline. Labels stay visible on both — icon-only tabs
- * fail people who do not recognise the glyphs.
+ * The same five destinations on both platforms, presented the way each expects.
+ * iOS uses the system tab bar from `_layout.ios.tsx`; this file serves Android
+ * (and web), with an opaque surface and a hairline. Labels stay visible —
+ * icon-only tabs fail people who do not recognise the glyphs.
  */
 export default function TabsLayout(): React.JSX.Element {
   const theme = useTheme();

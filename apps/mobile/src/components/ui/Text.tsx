@@ -14,6 +14,21 @@ export interface TextProps extends RNTextProps {
 }
 
 /**
+ * How far each style may grow with Dynamic Type, mirroring iOS: big styles
+ * grow less than body text (Apple's Large Title roughly doubles at the largest
+ * accessibility size while Body triples), so headings stay on screen and do
+ * not split words across lines. Body and smaller are left unbounded.
+ */
+const defaultMaxScale: Partial<Record<TypographyToken, number>> = {
+  display: 1.75,
+  title1: 2,
+  title2: 2.3,
+  title3: 2.6,
+  // The pickup code has to stay on one line to be read at the counter.
+  code: 1.3,
+};
+
+/**
  * Typed text.
  *
  * Every string in the app goes through here, which is what keeps type sizes on
@@ -33,7 +48,7 @@ export function Text({
   return (
     <RNText
       {...props}
-      maxFontSizeMultiplier={maxScale}
+      maxFontSizeMultiplier={maxScale ?? defaultMaxScale[variant]}
       style={[
         textStyle(variant),
         { color: theme.colors[color] },

@@ -1,6 +1,7 @@
 import { createApiClient } from '@grabgo/ui';
 import type {
   AdminAnalytics,
+  AdminListing,
   AuthSession,
   BusinessStatus,
   LoyaltyConfig,
@@ -157,6 +158,17 @@ export const adminApi = {
     api.post<{ businessId: string; ownerId: string; temporaryPassword: string | null }>(
       '/admin/businesses',
       body,
+    ),
+
+  /* -------------------------------------------- listings (not on Grab & Go) */
+
+  listings: (q?: string) =>
+    api.get<AdminListing[]>('/admin/listings', { ...(q ? { q } : {}), limit: 100 }),
+
+  claimListing: (listingId: string, owner: { ownerName: string; ownerEmail: string }) =>
+    api.post<{ businessId: string; ownerId: string; temporaryPassword: string | null }>(
+      `/admin/listings/${listingId}/claim`,
+      owner,
     ),
 
   approveBusiness: (businessId: string) =>

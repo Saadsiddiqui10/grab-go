@@ -64,6 +64,8 @@ export const ApiErrorCode = {
 
   BUSINESS_CLOSED: 'BUSINESS_CLOSED',
   BUSINESS_NOT_ACCEPTING_ORDERS: 'BUSINESS_NOT_ACCEPTING_ORDERS',
+  LISTING_NOT_CLAIMED: 'LISTING_NOT_CLAIMED',
+  LISTING_HAS_NO_MENU: 'LISTING_HAS_NO_MENU',
   BUSINESS_AT_CAPACITY: 'BUSINESS_AT_CAPACITY',
   ITEM_UNAVAILABLE: 'ITEM_UNAVAILABLE',
   INVALID_PICKUP_TIME: 'INVALID_PICKUP_TIME',
@@ -119,6 +121,8 @@ export const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
 
   BUSINESS_CLOSED: 409,
   BUSINESS_NOT_ACCEPTING_ORDERS: 409,
+  LISTING_NOT_CLAIMED: 409,
+  LISTING_HAS_NO_MENU: 409,
   BUSINESS_AT_CAPACITY: 409,
   ITEM_UNAVAILABLE: 409,
   INVALID_PICKUP_TIME: 422,
@@ -166,6 +170,8 @@ export const API_ERROR_STATUS: Record<ApiErrorCode, number> = {
 export const API_ERROR_MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   BUSINESS_CLOSED: 'This cafe is currently closed.',
   BUSINESS_NOT_ACCEPTING_ORDERS: 'This cafe is not taking orders right now.',
+  LISTING_NOT_CLAIMED: 'This cafe has not signed up yet.',
+  LISTING_HAS_NO_MENU: 'This cafe has no menu yet.',
   BUSINESS_AT_CAPACITY: 'This cafe is busy right now. Try a later pickup time.',
   ITEM_UNAVAILABLE: 'Sorry, this item is no longer available.',
   INVALID_PICKUP_TIME: 'That pickup time is no longer available. Pick another slot.',

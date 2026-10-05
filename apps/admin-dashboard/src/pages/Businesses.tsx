@@ -47,6 +47,9 @@ export function BusinessesPage(): React.JSX.Element {
       setToast('Cafe approved and live.');
       invalidate();
     },
+    // e.g. a claimed listing whose owner has not added a menu yet.
+    onError: (caught) =>
+      setToast(caught instanceof ApiError ? caught.displayMessage : 'Could not approve that cafe'),
   });
 
   const reinstate = useMutation({

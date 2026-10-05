@@ -9,11 +9,12 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { orderStatusColors } from '@grabgo/config';
+import { orderStatusColors, type CategoryColorSet } from '@grabgo/config';
 import type { OrderStatus } from '@grabgo/types';
 import { byPlatform, minTouchTarget, shadow, useTheme } from '../../theme';
 import { selectionFeedback, tapFeedback } from '../../lib/feedback';
 import { Text } from './Text';
+import { useReducedMotion } from '../../lib/motion';
 
 /**
  * Containers and small controls.
@@ -44,6 +45,7 @@ export function Card({
 }: CardProps): React.JSX.Element {
   const theme = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
 
   const surface: ViewStyle = {
     backgroundColor: theme.colors.surface,
@@ -60,7 +62,7 @@ export function Card({
   }
 
   const animate = (toValue: number): void => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== 'ios' || reduceMotion) return;
     Animated.spring(scale, { toValue, useNativeDriver: true, speed: 50, bounciness: 3 }).start();
   };
 
@@ -195,17 +197,18 @@ export function ProgressBar({
   const theme = useTheme();
   const width = useRef(new Animated.Value(0)).current;
   const clamped = Math.max(0, Math.min(1, progress));
+  const reduceMotion = useReducedMotion();
 
   // Animate toward the value so points earned mid-session visibly advance the
   // bar rather than jumping. Driven from an effect, never during render.
   useEffect(() => {
     Animated.timing(width, {
       toValue: clamped,
-      duration: theme.motion.slow,
+      duration: reduceMotion ? 0 : theme.motion.slow,
       // Width cannot be driven natively; the bar is small and the animation short.
       useNativeDriver: false,
     }).start();
-  }, [clamped, width, theme.motion.slow]);
+  }, [clamped, width, theme.motion.slow, reduceMotion]);
 
   const colour = tone === 'success' ? theme.colors.success : theme.colors.primary;
 
@@ -399,13 +402,30 @@ export function Chip({
   selected = false,
   onPress,
   icon,
+  colors,
 }: {
   label: string;
   selected?: boolean;
   onPress: () => void;
-  icon?: string;
+  /** Leading glyph; given the chip's foreground colour. */
+  icon?: (color: string) => React.ReactNode;
+  /** A category's own colours. Without them the chip uses the brand. */
+  colors?: CategoryColorSet;
 }): React.JSX.Element {
   const theme = useTheme();
+
+  const background = colors
+    ? selected
+      ? colors.solid
+      : colors.soft
+    : selected
+      ? theme.colors.primary
+      : theme.colors.surface;
+  const border = colors ? background : selected ? theme.colors.primary : theme.colors.border;
+  const foreground = selected
+    ? (colors?.onSolid ?? theme.colors.textOnPrimary)
+    : theme.colors.textPrimary;
+  const iconColour = selected ? foreground : (colors?.solid ?? theme.colors.textSecondary);
 
   return (
     <Pressable
@@ -423,17 +443,13 @@ export function Chip({
         paddingHorizontal: theme.spacing.base,
         minHeight: 38,
         borderRadius: byPlatform({ ios: theme.radii.md, android: theme.radii.pill }),
-        backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
+        backgroundColor: background,
         borderWidth: 1,
-        borderColor: selected ? theme.colors.primary : theme.colors.border,
+        borderColor: border,
       }}
     >
-      {icon ? <Text style={{ fontSize: 14 }}>{icon}</Text> : null}
-      <Text
-        variant="subhead"
-        style={{ color: selected ? theme.colors.textOnPrimary : theme.colors.textPrimary }}
-        maxScale={1.3}
-      >
+      {icon ? icon(iconColour) : null}
+      <Text variant="subhead" style={{ color: foreground }} maxScale={1.3}>
         {label}
       </Text>
     </Pressable>

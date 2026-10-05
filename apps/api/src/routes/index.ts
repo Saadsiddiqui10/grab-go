@@ -5,6 +5,7 @@ import { handleWebhookEvent } from '../services/payments';
 import { registerAdminRoutes } from './admin.routes';
 import { registerAuthRoutes } from './auth.routes';
 import { registerCatalogRoutes } from './catalog.routes';
+import { registerListingRoutes } from './listings.routes';
 import { registerMerchantRoutes } from './merchant.routes';
 import { registerOrderRoutes } from './orders.routes';
 import { registerUserRoutes } from './users.routes';
@@ -60,6 +61,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
   await registerAuthRoutes(app);
   await registerCatalogRoutes(app);
+  await registerListingRoutes(app);
   await registerOrderRoutes(app);
   await registerUserRoutes(app);
   await registerMerchantRoutes(app);

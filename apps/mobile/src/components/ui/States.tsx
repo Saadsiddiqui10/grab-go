@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
 import { Text } from './Text';
 import { Button } from './Button';
+import { useReducedMotion } from '../../lib/motion';
 
 /**
  * Loading, empty and error states.
@@ -34,8 +35,14 @@ export function Skeleton({
 }): React.JSX.Element {
   const theme = useTheme();
   const pulse = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
+    // With Reduce Motion on, the placeholder stays still at a mid tone.
+    if (reduceMotion) {
+      pulse.setValue(0.5);
+      return;
+    }
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
@@ -44,7 +51,7 @@ export function Skeleton({
     );
     animation.start();
     return () => animation.stop();
-  }, [pulse]);
+  }, [pulse, reduceMotion]);
 
   return (
     <Animated.View

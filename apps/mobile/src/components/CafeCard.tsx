@@ -1,5 +1,5 @@
-import { View, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, type ImageStyle } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import type { BusinessSummary } from '@grabgo/types';
 import { useTheme } from '../theme';
@@ -7,6 +7,7 @@ import { formatDistance, formatPrepTime } from '../lib/format';
 import { Text } from './ui/Text';
 import { Badge, Card } from './ui/Surface';
 import { IconButton } from './ui/Button';
+import { AppIcon } from './ui/AppIcon';
 
 /**
  * A cafe, as it appears in a list.
@@ -16,7 +17,41 @@ import { IconButton } from './ui/Button';
  * for the cafe page.
  */
 
-const BLUR_PLACEHOLDER = 'L6Pj0^i_.AyE_3t7t7R**0o#DgR4';
+/**
+ * A cafe's photo, or a quiet themed placeholder when it has none. A fixed
+ * blurhash used to stand in for every missing photo, but it is light beige, so
+ * in dark mode it read as a row of glaring blank cards.
+ */
+export function CafeImage({
+  uri,
+  style,
+  iconSize = 28,
+}: {
+  uri: string | null | undefined;
+  style: StyleProp<ImageStyle>;
+  iconSize?: number;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const background = { backgroundColor: theme.colors.surfaceMuted };
+
+  if (!uri) {
+    return (
+      <View style={[style as StyleProp<ViewStyle>, background, styles.placeholder]}>
+        <AppIcon name="coffee" size={iconSize} color={theme.colors.textMuted} />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      contentFit="cover"
+      transition={200}
+      style={[style, background]}
+      accessible={false}
+    />
+  );
+}
 
 export interface CafeCardProps {
   cafe: BusinessSummary;
@@ -49,14 +84,7 @@ export function CafeCard({
       }${cafe.rating ? `, rated ${cafe.rating} out of 5` : ''}`}
     >
       <View>
-        <Image
-          source={cafe.coverImageUrl ? { uri: cafe.coverImageUrl } : undefined}
-          placeholder={{ blurhash: BLUR_PLACEHOLDER }}
-          contentFit="cover"
-          transition={200}
-          style={[styles.cover, { height: isRail ? 140 : 160 }]}
-          accessible={false}
-        />
+        <CafeImage uri={cafe.coverImageUrl} style={[styles.cover, { height: isRail ? 140 : 160 }]} />
 
         {/* A closed cafe stays browsable, but the card says so plainly. */}
         {closed || paused ? (
@@ -165,12 +193,10 @@ export function CafeCardCompact({
   return (
     <Card onPress={onPress} padded={false} accessibilityLabel={cafe.name}>
       <View style={{ flexDirection: 'row', padding: theme.spacing.md, gap: theme.spacing.md }}>
-        <Image
-          source={cafe.logoUrl ? { uri: cafe.logoUrl } : undefined}
-          placeholder={{ blurhash: BLUR_PLACEHOLDER }}
-          contentFit="cover"
-          style={{ width: 56, height: 56, borderRadius: theme.radii.md }}
-          accessible={false}
+        <CafeImage
+          uri={cafe.logoUrl}
+          iconSize={20}
+          style={{ width: 56, height: 56, borderRadius: theme.radii.md, overflow: 'hidden' }}
         />
 
         <View style={{ flex: 1, justifyContent: 'center', gap: 3 }}>
@@ -196,7 +222,10 @@ export function CafeCardCompact({
 const styles = StyleSheet.create({
   cover: {
     width: '100%',
-    backgroundColor: '#E2D8CF',
+  },
+  placeholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrim: {
     position: 'absolute',

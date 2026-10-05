@@ -101,6 +101,8 @@ export function toBusinessSummary(
     coverImageUrl: business.coverImageUrl,
     areaName: business.area?.name ?? null,
     cityName: business.city?.name ?? null,
+    latitude: business.latitude,
+    longitude: business.longitude,
     rating: business.ratingCount > 0 ? Number(business.ratingAverage.toFixed(1)) : null,
     reviewCount: business.ratingCount,
     prepTimeMinutes: computed.prepTimeMinutes,
@@ -126,8 +128,6 @@ export function toBusinessDetail(
     ...toBusinessSummary(business, computed),
     description: business.description,
     addressLine: business.addressLine,
-    latitude: business.latitude,
-    longitude: business.longitude,
     phone: business.phone,
     openingHours: business.hours
       .slice()

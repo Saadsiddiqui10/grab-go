@@ -1,5 +1,6 @@
-import { useCallback, type ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { CameraRef, LngLatBounds } from '@maplibre/maplibre-react-native';
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 import { Text } from '../components/ui/Text';
@@ -32,6 +33,11 @@ export interface GrabGoMapProps {
   interactive?: boolean;
   style?: StyleProp<ViewStyle>;
   onMapReady?: () => void;
+  /**
+   * `[west, south, east, north]` to frame, e.g. every pin on screen. Animates
+   * whenever the value changes; `center` and `zoom` only set the first frame.
+   */
+  fitBounds?: LngLatBounds | null;
   /** Map content — annotations, sources, layers. */
   children?: ReactNode;
 }
@@ -55,12 +61,47 @@ export function GrabGoMap({
   interactive = true,
   style,
   onMapReady,
+  fitBounds,
   children,
 }: GrabGoMapProps): React.JSX.Element {
   const unavailable = mapUnavailableReason();
   const maplibre = loadMapLibre();
+  const cameraRef = useRef<CameraRef>(null);
 
-  const handleReady = useCallback(() => onMapReady?.(), [onMapReady]);
+  // Fitting bounds needs a loaded map with a real size. Asked earlier (data
+  // often arrives before layout), MapLibre sees a 0-high view, rejects the
+  // padding as larger than the map and leaves the camera where it was.
+  const [loaded, setLoaded] = useState(false);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setSize((previous) =>
+      previous && previous.width === width && previous.height === height
+        ? previous
+        : { width, height },
+    );
+  }, []);
+
+  // Keyed on the numbers, not the array, so a re-render with equal bounds
+  // does not restart the animation.
+  const boundsKey = fitBounds ? fitBounds.join(',') : null;
+  useEffect(() => {
+    if (!fitBounds || !loaded || !size || size.width === 0 || size.height === 0) return;
+    // Room for the pins and their labels, but never more than a fifth of the
+    // map on any side, so a short map still has space to fit into.
+    const vertical = Math.min(72, size.height * 0.2);
+    const horizontal = Math.min(48, size.width * 0.2);
+    cameraRef.current?.fitBounds(fitBounds, {
+      padding: { top: vertical, right: horizontal, bottom: vertical, left: horizontal },
+      duration: 600,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boundsKey, loaded, size]);
+
+  const handleReady = useCallback(() => {
+    setLoaded(true);
+    onMapReady?.();
+  }, [onMapReady]);
 
   const handleFailed = useCallback(() => {
     // The style itself is bundled, but its tiles and glyphs are fetched over
@@ -77,7 +118,7 @@ export function GrabGoMap({
   const safeCenter = isValidCenter(center) ? center : DEV_DEFAULT_CENTER;
 
   return (
-    <View style={[styles.fill, style]}>
+    <View style={[styles.fill, style]} onLayout={onLayout}>
       <Map
         style={styles.fill}
         mapStyle={MAP_STYLE}
@@ -100,6 +141,7 @@ export function GrabGoMap({
         onDidFailLoadingMap={handleFailed}
       >
         <Camera
+          ref={cameraRef}
           initialViewState={{ center: safeCenter, zoom }}
           minZoom={minZoom}
           maxZoom={maxZoom}

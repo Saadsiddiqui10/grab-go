@@ -274,6 +274,58 @@ export const orderStatusColors = {
   EXPIRED: { fg: palette.espresso[500], bg: palette.espresso[100] },
 } as const;
 
+/**
+ * Discovery category colours, each taken from its drink or food: espresso
+ * brown, karak amber, matcha green and so on.
+ *
+ * `solid` fills a selected tab and a map pin, with `onSolid` text on top;
+ * `soft` tints an unselected tab. Light `solid`s hold white text at 4.5:1 or
+ * better. Dark mode flips to lighter `solid`s with dark text, since a deep
+ * brown pin disappears on a dark map.
+ */
+export interface CategoryColorSet {
+  solid: string;
+  onSolid: string;
+  soft: string;
+}
+
+export const categoryColors: Record<string, { light: CategoryColorSet; dark: CategoryColorSet }> = {
+  coffee: {
+    light: { solid: '#6F4E37', onSolid: palette.white, soft: '#F3EAE3' },
+    dark: { solid: '#C8A07F', onSolid: palette.espresso[900], soft: '#33261E' },
+  },
+  tea: {
+    light: { solid: '#B45309', onSolid: palette.white, soft: '#FDF0E1' },
+    dark: { solid: '#F59E0B', onSolid: palette.espresso[900], soft: '#3A2A12' },
+  },
+  matcha: {
+    light: { solid: '#4D7C0F', onSolid: palette.white, soft: '#EEF5E0' },
+    dark: { solid: '#A3C76D', onSolid: palette.espresso[900], soft: '#263319' },
+  },
+  breakfast: {
+    light: { solid: '#A16207', onSolid: palette.white, soft: '#FBF3D9' },
+    dark: { solid: '#FACC15', onSolid: palette.espresso[900], soft: '#3A3212' },
+  },
+  bakery: {
+    light: { solid: '#9A3412', onSolid: palette.white, soft: '#FBE9E1' },
+    dark: { solid: '#FB923C', onSolid: palette.espresso[900], soft: '#3B2318' },
+  },
+  desserts: {
+    light: { solid: '#BE185D', onSolid: palette.white, soft: '#FCE7F1' },
+    dark: { solid: '#F472B6', onSolid: palette.espresso[900], soft: '#3A1F2C' },
+  },
+  healthy: {
+    light: { solid: '#0F766E', onSolid: palette.white, soft: '#DDF4F1' },
+    dark: { solid: '#2DD4BF', onSolid: palette.espresso[900], soft: '#15302D' },
+  },
+};
+
+/** Categories without their own colour fall back to the brand. */
+export const defaultCategoryColors = {
+  light: { solid: palette.ember[600], onSolid: palette.white, soft: palette.ember[50] },
+  dark: { solid: palette.ember[400], onSolid: palette.espresso[900], soft: '#3A2216' },
+} as const satisfies { light: CategoryColorSet; dark: CategoryColorSet };
+
 /** Emit the light/dark themes as CSS custom properties for the web dashboards. */
 export function themeToCssVariables(theme: ThemeColors): string {
   return Object.entries(theme)

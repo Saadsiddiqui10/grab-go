@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Animated, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Linking, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme';
@@ -11,6 +11,8 @@ import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Surface';
 import { PickupCodeCard } from '../../src/components/OrderComponents';
 import { LoadingState, ErrorState } from '../../src/components/ui/States';
+import { useReducedMotion } from '../../src/lib/motion';
+import { usePushPermission } from '../../src/lib/notifications';
 
 /**
  * Order confirmation.
@@ -27,8 +29,14 @@ export default function OrderConfirmedScreen(): React.JSX.Element {
   const order = useOrder(id);
 
   const entrance = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
+    // With Reduce Motion on, the confirmation simply appears.
+    if (reduceMotion) {
+      entrance.setValue(1);
+      return;
+    }
     // A single, brief entrance. The product promise is speed; a long celebration
     // animation would contradict it.
     Animated.spring(entrance, {
@@ -37,7 +45,7 @@ export default function OrderConfirmedScreen(): React.JSX.Element {
       speed: 12,
       bounciness: 6,
     }).start();
-  }, [entrance]);
+  }, [entrance, reduceMotion]);
 
   if (order.isLoading) return <LoadingState label="Confirming your order…" />;
   if (order.isError || !order.data) {
@@ -110,15 +118,7 @@ export default function OrderConfirmedScreen(): React.JSX.Element {
             />
           ) : null}
 
-          <Card style={{ backgroundColor: theme.colors.primarySubtle }}>
-            <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
-              <Ionicons name="notifications-outline" size={20} color={theme.colors.primary} />
-              <Text variant="footnote" color="textSecondary" style={{ flex: 1 }}>
-                We&apos;ll notify you the moment it&apos;s ready. Skip the line and grab your
-                order when it is.
-              </Text>
-            </View>
-          </Card>
+          <ReadyNotificationCard />
         </View>
       </ScrollScreen>
 
@@ -139,6 +139,63 @@ export default function OrderConfirmedScreen(): React.JSX.Element {
         </View>
       </StickyFooter>
     </View>
+  );
+}
+
+/**
+ * The moment to ask for notifications: an order exists, so "tell me when it's
+ * ready" is an obvious trade. The system prompt only appears after the
+ * customer taps the button, and the card never promises a notification the
+ * app is not allowed to send.
+ */
+function ReadyNotificationCard(): React.JSX.Element | null {
+  const theme = useTheme();
+  const { status, request } = usePushPermission();
+  const [asking, setAsking] = useState(false);
+
+  if (status === null || status === 'unavailable') return null;
+
+  const body =
+    status === 'granted'
+      ? "We'll notify you the moment it's ready. Skip the line and grab your order when it is."
+      : status === 'denied'
+        ? 'Notifications are off, so watch the order screen, which updates live. You can turn them on in Settings.'
+        : "Get a notification the moment it's ready, so you can walk in and collect it.";
+
+  return (
+    <Card style={{ backgroundColor: theme.colors.primarySubtle }}>
+      <View style={{ gap: theme.spacing.md }}>
+        <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'center' }}>
+          <Ionicons
+            name={status === 'denied' ? 'notifications-off-outline' : 'notifications-outline'}
+            size={20}
+            color={theme.colors.primary}
+          />
+          <Text variant="footnote" color="textSecondary" style={{ flex: 1 }}>
+            {body}
+          </Text>
+        </View>
+        {status === 'undetermined' ? (
+          <Button
+            label="Notify me when it's ready"
+            variant="secondary"
+            size="sm"
+            loading={asking}
+            onPress={() => {
+              setAsking(true);
+              void request().finally(() => setAsking(false));
+            }}
+          />
+        ) : status === 'denied' ? (
+          <Button
+            label="Open Settings"
+            variant="ghost"
+            size="sm"
+            onPress={() => void Linking.openSettings()}
+          />
+        ) : null}
+      </View>
+    </Card>
   );
 }
 

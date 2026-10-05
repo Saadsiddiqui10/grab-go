@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { FlatList, Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { discoveryCategories } from '@grabgo/config';
 import type { BusinessSummary } from '@grabgo/types';
 import { useTheme } from '../../src/theme';
 import { useLocationStore } from '../../src/stores/location';
@@ -11,6 +10,7 @@ import { Text } from '../../src/components/ui/Text';
 import { SearchInput } from '../../src/components/ui/Input';
 import { Chip, SegmentedControl } from '../../src/components/ui/Surface';
 import { CafeCard } from '../../src/components/CafeCard';
+import { CategoryTabs } from '../../src/components/CategoryTabs';
 import { EmptyState, ErrorState, ListSkeleton } from '../../src/components/ui/States';
 import { StatusBar } from 'expo-status-bar';
 
@@ -81,28 +81,25 @@ export default function DiscoverScreen(): React.JSX.Element {
 
         <SearchInput value={search} onChange={setSearch} />
 
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={[{ slug: 'open', label: 'Open now', emoji: '🟢' }, ...discoveryCategories.filter((entry) => entry.isLive)]}
-          keyExtractor={(entry) => entry.slug}
-          contentContainerStyle={{ gap: theme.spacing.sm }}
-          renderItem={({ item }) =>
-            item.slug === 'open' ? (
-              <Chip
-                label={item.label}
-                icon={item.emoji}
-                selected={openNow}
-                onPress={() => setOpenNow((value) => !value)}
-              />
-            ) : (
-              <Chip
-                label={item.label}
-                icon={item.emoji}
-                selected={category === item.slug}
-                onPress={() => setCategory(category === item.slug ? null : item.slug)}
-              />
-            )
+        <CategoryTabs
+          selected={category}
+          onChange={setCategory}
+          leading={
+            <Chip
+              label="Open now"
+              icon={(color) => (
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: openNow ? color : theme.colors.success,
+                  }}
+                />
+              )}
+              selected={openNow}
+              onPress={() => setOpenNow((value) => !value)}
+            />
           }
         />
 

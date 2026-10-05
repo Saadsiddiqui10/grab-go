@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -10,10 +10,10 @@ import { auth as authApi } from '../api/endpoints';
 /**
  * Push notifications.
  *
- * The permission prompt is deliberately not shown at launch. It is requested
- * after the customer has signed in, when "tell me when my coffee is ready" is an
- * obvious trade rather than an interruption — a denied prompt is effectively
- * permanent, so it is only worth asking once, at the right moment.
+ * The permission prompt is never shown at launch or sign-in. It is offered
+ * after an order is placed, behind a short explanation, when "tell me when my
+ * coffee is ready" is an obvious trade rather than an interruption. A denied
+ * prompt is effectively permanent, so it is only worth asking once, then.
  */
 
 Notifications.setNotificationHandler({
@@ -56,10 +56,18 @@ async function configureAndroidChannels(): Promise<void> {
  */
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-export async function registerForPushNotifications(): Promise<string | null> {
-  // A simulator has no push token; asking would fail noisily for no benefit.
-  if (!Device.isDevice) return null;
+export type PushPermission = 'undetermined' | 'granted' | 'denied' | 'unavailable';
 
+/**
+ * Register this device for order updates.
+ *
+ * Without `prompt`, it only completes when permission was granted earlier, so
+ * it is safe to call on every sign-in. With `prompt`, it shows the system
+ * dialog, which callers do only after explaining why (see `usePushPermission`).
+ */
+export async function registerForPushNotifications({
+  prompt = false,
+}: { prompt?: boolean } = {}): Promise<string | null> {
   if (isExpoGo) {
     console.info('[push] skipped — Expo Go does not support remote push. Use a dev build.');
     return null;
@@ -68,23 +76,16 @@ export async function registerForPushNotifications(): Promise<string | null> {
   try {
     await configureAndroidChannels();
 
-    const existing = await Notifications.getPermissionsAsync();
-    let status = existing.status;
-
-    if (status !== 'granted') {
-      // iOS: request provisional-friendly settings so the OS can deliver
-      // quietly if the customer has not explicitly opted in.
-      const requested = await Notifications.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-        },
-      });
-      status = requested.status;
+    let { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted' && prompt) {
+      ({ status } = await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      }));
     }
-
     if (status !== 'granted') return null;
+
+    // A simulator can grant permission but has no push token.
+    if (!Device.isDevice) return null;
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
@@ -105,6 +106,38 @@ export async function registerForPushNotifications(): Promise<string | null> {
     console.warn('[push] registration failed', error);
     return null;
   }
+}
+
+/**
+ * The notification permission, plus a way to ask for it.
+ *
+ * Screens show their own explanation while this is `undetermined` and call
+ * `request` from a button, so the system prompt only ever appears as the
+ * answer to something the customer chose.
+ */
+export function usePushPermission(): {
+  status: PushPermission | null;
+  request: () => Promise<void>;
+} {
+  const [status, setStatus] = useState<PushPermission | null>(null);
+
+  useEffect(() => {
+    if (isExpoGo) {
+      setStatus('unavailable');
+      return;
+    }
+    void Notifications.getPermissionsAsync()
+      .then((result) => setStatus(result.status as PushPermission))
+      .catch(() => setStatus('unavailable'));
+  }, []);
+
+  const request = useCallback(async () => {
+    await registerForPushNotifications({ prompt: true });
+    const result = await Notifications.getPermissionsAsync().catch(() => null);
+    setStatus(result ? (result.status as PushPermission) : 'unavailable');
+  }, []);
+
+  return { status, request };
 }
 
 /**

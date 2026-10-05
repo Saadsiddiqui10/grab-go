@@ -245,6 +245,7 @@ specifically to prove nothing is hardcoded — launching it is a flag.
 | `npm run db:deploy` | Apply migrations (production-safe) |
 | `npm run db:migrate` | Create a migration from a schema change |
 | `npm run db:seed` | Seed Karachi, six cafés, menus, users, rewards |
+| `npm run db:import-osm` | Import Karachi's cafes from OpenStreetMap as "not on Grab & Go yet" listings |
 | `npm run db:reset` | Drop, re-migrate and re-seed |
 | `npm run db:studio` | Prisma Studio |
 | `npm run build` | Build packages, API and both dashboards |
@@ -258,6 +259,21 @@ specifically to prove nothing is hardcoded — launching it is a flag.
 - [`docs/architecture.md`](docs/architecture.md) — request lifecycle, data flow, deployment
 - [`docs/api.md`](docs/api.md) — every endpoint, with the auth each requires
 - [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) — the data model, commented
+
+### Cafes not on Grab & Go yet
+
+`npm run db:import-osm` imports every named cafe OpenStreetMap has for
+Karachi (about 680). They appear on the customer map as grey dots and can be
+**requested, never ordered from**: each is stored `PENDING_APPROVAL` with
+ordering off, so discovery, menus and checkout never see it.
+
+Customers tap a dot and ask for the cafe; the admin dashboard's **Listings**
+page ranks cafes by those requests. When a cafe agrees to join, an admin
+onboards its owner from that page, the owner adds a menu in the merchant
+dashboard, and approval (which refuses a listing with no owner or menu) puts
+it live. Re-running the import refreshes unclaimed listings and never touches
+claimed ones. Listing data © OpenStreetMap contributors (ODbL), credited in
+the app.
 
 ## Known gaps
 

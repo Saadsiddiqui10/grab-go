@@ -101,7 +101,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
           accessibilityHint={error ?? hint}
           style={[
             styles.input,
-            textStyle('body'),
+            inputTextStyle,
             { color: theme.colors.textPrimary, paddingVertical: Platform.OS === 'ios' ? 14 : 10 },
           ]}
         />
@@ -232,7 +232,7 @@ export function SearchInput({
         clearButtonMode="while-editing"
         accessibilityLabel="Search"
         underlineColorAndroid="transparent"
-        style={[styles.input, textStyle('body'), { color: theme.colors.textPrimary }]}
+        style={[styles.input, inputTextStyle, { color: theme.colors.textPrimary, paddingVertical: 12 }]}
       />
       {/* iOS provides its own clear button; Android needs one drawn. */}
       {Platform.OS === 'android' && value.length > 0 ? (
@@ -243,6 +243,12 @@ export function SearchInput({
     </View>
   );
 }
+
+/**
+ * Body type for TextInput, minus the line height: on iOS a fixed lineHeight
+ * pushes input text off its baseline once Dynamic Type enlarges the font.
+ */
+const { lineHeight: _lineHeight, ...inputTextStyle } = textStyle('body');
 
 const styles = StyleSheet.create({
   field: {

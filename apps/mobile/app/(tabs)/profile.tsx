@@ -12,6 +12,7 @@ import { Text } from '../../src/components/ui/Text';
 import { Card, Divider, ListRow } from '../../src/components/ui/Surface';
 import { SignInPrompt } from '../../src/components/SignInPrompt';
 import { formatPoints } from '../../src/lib/format';
+import { AppIcon } from '../../src/components/ui/AppIcon';
 
 /**
  * Profile.
@@ -87,9 +88,13 @@ export default function ProfileScreen(): React.JSX.Element {
               backgroundColor: theme.colors.primaryMuted,
             }}
           >
-            <Text variant="title2" color="primary">
-              {initials || '☕'}
-            </Text>
+            {initials ? (
+              <Text variant="title2" color="primary">
+                {initials}
+              </Text>
+            ) : (
+              <AppIcon name="person" size={28} color={theme.colors.primary} />
+            )}
           </View>
         )}
 

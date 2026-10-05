@@ -247,3 +247,21 @@ export type DiscoverQuery = z.infer<typeof discoverQuerySchema>;
 export type CreateMenuItemInput = z.infer<typeof createMenuItemSchema>;
 export type UpdateBusinessSettingsInput = z.infer<typeof updateBusinessSettingsSchema>;
 export type OpeningHourInput = z.infer<typeof openingHourSchema>;
+
+/* --------------------------------------------- listings (not on Grab & Go yet) */
+
+export const listingsQuerySchema = z.object({
+  /** One category slug, as on discovery. */
+  tags: z.string().trim().max(40).optional(),
+});
+
+export const adminListingsQuerySchema = z.object({
+  q: z.string().trim().max(80).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+/** Hand an imported listing to its real owner, who then adds a menu. */
+export const claimListingSchema = z.object({
+  ownerEmail: z.string().trim().email().max(255),
+  ownerName: z.string().trim().min(2).max(80),
+});

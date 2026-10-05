@@ -33,18 +33,23 @@ export function referralShareMessage(code: string, rewardLabel = 'a free coffee'
  *
  * `CAFE` ships first, but the list is already vertical-neutral so restaurants and
  * bakeries appear by flipping `isLive` rather than by a release.
+ *
+ * `slug` is the business tag the category filters on. `icon` is a semantic
+ * name each client maps to its own icon set (SF Symbols on iOS); colours live
+ * in `categoryColors` in tokens.ts.
  */
 export const discoveryCategories = [
-  { slug: 'coffee', label: 'Coffee', emoji: '☕', isLive: true },
-  { slug: 'tea', label: 'Tea', emoji: '🍵', isLive: true },
-  { slug: 'breakfast', label: 'Breakfast', emoji: '🍳', isLive: true },
-  { slug: 'bakery', label: 'Bakery', emoji: '🥐', isLive: true },
-  { slug: 'desserts', label: 'Desserts', emoji: '🍰', isLive: true },
-  { slug: 'healthy', label: 'Healthy', emoji: '🥗', isLive: true },
-  { slug: 'bubble-tea', label: 'Bubble Tea', emoji: '🧋', isLive: false },
-  { slug: 'fast-food', label: 'Fast Food', emoji: '🍔', isLive: false },
-  { slug: 'pizza', label: 'Pizza', emoji: '🍕', isLive: false },
-  { slug: 'restaurants', label: 'Restaurants', emoji: '🍽️', isLive: false },
+  { slug: 'coffee', label: 'Coffee', icon: 'coffee', isLive: true },
+  { slug: 'tea', label: 'Tea', icon: 'tea', isLive: true },
+  { slug: 'matcha', label: 'Matcha', icon: 'matcha', isLive: true },
+  { slug: 'breakfast', label: 'Breakfast', icon: 'breakfast', isLive: true },
+  { slug: 'bakery', label: 'Bakery', icon: 'bakery', isLive: true },
+  { slug: 'desserts', label: 'Desserts', icon: 'desserts', isLive: true },
+  { slug: 'healthy', label: 'Healthy', icon: 'healthy', isLive: true },
+  { slug: 'bubble-tea', label: 'Bubble Tea', icon: 'bubble-tea', isLive: false },
+  { slug: 'fast-food', label: 'Fast Food', icon: 'fast-food', isLive: false },
+  { slug: 'pizza', label: 'Pizza', icon: 'pizza', isLive: false },
+  { slug: 'restaurants', label: 'Restaurants', icon: 'restaurants', isLive: false },
 ] as const;
 
 export type DiscoveryCategory = (typeof discoveryCategories)[number];

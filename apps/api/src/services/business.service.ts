@@ -23,6 +23,7 @@ import {
   type MenuItemWithOptions,
 } from '../mappers';
 import { HttpError, notFound } from '../lib/http-error';
+import { hashPassword, randomToken } from '../lib/crypto';
 import { getPlatformConfig } from './settings.service';
 
 /**
@@ -531,4 +532,36 @@ export async function assertCanAcceptOrder(
       );
     }
   }
+}
+
+/**
+ * The owner account for a cafe being onboarded: the existing user with this
+ * email (promoted to MERCHANT), or a new one with a temporary password the
+ * admin passes on. Shared by "create a cafe" and "hand over an imported
+ * listing", which must treat owners identically.
+ */
+export async function ensureOwner(
+  tx: DbOrTx,
+  email: string,
+  fullName: string,
+): Promise<{ id: string; temporaryPassword: string | null }> {
+  const existing = await tx.user.findUnique({ where: { email }, select: { id: true } });
+  if (existing) {
+    await tx.user.update({ where: { id: existing.id }, data: { role: 'MERCHANT' } });
+    return { id: existing.id, temporaryPassword: null };
+  }
+
+  const temporaryPassword = randomToken(9);
+  const created = await tx.user.create({
+    data: {
+      email,
+      passwordHash: await hashPassword(temporaryPassword),
+      role: 'MERCHANT',
+      referralCode: `CAFE${randomToken(5).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}`,
+      profile: { create: { fullName } },
+      pointsAccount: { create: {} },
+    },
+    select: { id: true },
+  });
+  return { id: created.id, temporaryPassword };
 }

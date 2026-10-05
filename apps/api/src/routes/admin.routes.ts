@@ -33,10 +33,12 @@ import {
   writeSetting,
 } from '../services/settings.service';
 import { getAdminAnalytics, resolveRange } from '../services/analytics.service';
+import { ensureOwner } from '../services/business.service';
+import { assertListingReadyForApproval } from './listings.routes';
 import { applyPointsDelta } from '../services/loyalty.service';
 import { transitionOrder } from '../services/order.service';
 import { refundOrder } from '../services/payments';
-import { hashPassword, randomToken } from '../lib/crypto';
+import { randomToken } from '../lib/crypto';
 
 /**
  * Admin API.
@@ -222,6 +224,9 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     const rows = await prisma.business.findMany({
       where: {
         deletedAt: null,
+        // Unclaimed OpenStreetMap listings live under /admin/listings; once
+        // claimed they appear here like any other cafe awaiting approval.
+        OR: [{ osmId: null }, { claimedAt: { not: null } }],
         ...(query.status !== 'ALL' ? { status: query.status } : {}),
         ...(query.cityId ? { cityId: query.cityId } : {}),
         ...(query.q ? { name: { contains: query.q, mode: 'insensitive' } } : {}),
@@ -299,29 +304,8 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         select: { id: true },
       });
 
-      let owner = await tx.user.findUnique({
-        where: { email: body.ownerEmail },
-        select: { id: true },
-      });
-
-      let temporaryPassword: string | null = null;
-
-      if (!owner) {
-        temporaryPassword = randomToken(9);
-        owner = await tx.user.create({
-          data: {
-            email: body.ownerEmail,
-            passwordHash: await hashPassword(temporaryPassword),
-            role: 'MERCHANT',
-            referralCode: `CAFE${randomToken(5).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}`,
-            profile: { create: { fullName: body.ownerName } },
-            pointsAccount: { create: {} },
-          },
-          select: { id: true },
-        });
-      } else {
-        await tx.user.update({ where: { id: owner.id }, data: { role: 'MERCHANT' } });
-      }
+      const owner = await ensureOwner(tx, body.ownerEmail, body.ownerName);
+      const temporaryPassword = owner.temporaryPassword;
 
       await tx.cafeStaff.create({
         data: { businessId: business.id, userId: owner.id, staffRole: 'OWNER' },
@@ -343,9 +327,14 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     });
     if (!before) throw notFound('That cafe');
 
+    // An imported listing goes live only with an owner and a menu, and only
+    // then starts taking orders (it was imported with ordering off).
+    const { imported } = await assertListingReadyForApproval(prisma, businessId);
+
     await prisma.business.update({
       where: { id: businessId },
       data: {
+        ...(imported ? { acceptingOrders: true } : {}),
         status: 'ACTIVE',
         approvedAt: new Date(),
         approvedById: principal.userId,

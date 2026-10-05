@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
+import { CafeImage } from '../../src/components/CafeCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -23,6 +23,7 @@ import { Badge, Card, Divider } from '../../src/components/ui/Surface';
 import { IconButton } from '../../src/components/ui/Button';
 import { CartBar, MenuItemRow } from '../../src/components/MenuComponents';
 import { EmptyState, ErrorState, ListSkeleton } from '../../src/components/ui/States';
+import { useReducedMotion } from '../../src/lib/motion';
 
 /**
  * Cafe profile and menu.
@@ -68,11 +69,15 @@ export default function CafeScreen(): React.JSX.Element {
     extrapolate: 'clamp',
   });
 
-  const coverScale = scrollY.interpolate({
-    inputRange: [-200, 0],
-    outputRange: [1.5, 1],
-    extrapolateRight: 'clamp',
-  });
+  // Pull-down stretches the cover; with Reduce Motion on it stays put.
+  const reduceMotion = useReducedMotion();
+  const coverScale = reduceMotion
+    ? 1
+    : scrollY.interpolate({
+        inputRange: [-200, 0],
+        outputRange: [1.5, 1],
+        extrapolateRight: 'clamp',
+      });
 
   if (cafe.isError) {
     return (
@@ -149,13 +154,10 @@ export default function CafeScreen(): React.JSX.Element {
       >
         {/* ------------------------------------------------------- cover */}
         <Animated.View style={{ transform: [{ scale: coverScale }] }}>
-          <Image
-            source={cafe.data?.coverImageUrl ? { uri: cafe.data.coverImageUrl } : undefined}
-            placeholder={{ blurhash: 'L6Pj0^i_.AyE_3t7t7R**0o#DgR4' }}
-            contentFit="cover"
-            transition={250}
-            style={{ width: '100%', height: HEADER_HEIGHT, backgroundColor: '#3A2C25' }}
-            accessible={false}
+          <CafeImage
+            uri={cafe.data?.coverImageUrl}
+            iconSize={44}
+            style={{ width: '100%', height: HEADER_HEIGHT }}
           />
           <View style={styles.coverScrim} />
         </Animated.View>
