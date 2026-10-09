@@ -19,7 +19,12 @@ export default function TabsLayout(): React.JSX.Element {
   const cartCount = useCartCount();
 
   return (
-    <NativeTabs tintColor={theme.colors.primary} badgeBackgroundColor={theme.colors.primary}>
+    // Selected tab in the redesign's maroon; on dark glass maroon disappears,
+    // so dark mode uses the soft pink drawn for it.
+    <NativeTabs
+      tintColor={theme.isDark ? theme.colors.onAccentSoft : theme.colors.accent}
+      badgeBackgroundColor={theme.colors.accent}
+    >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />

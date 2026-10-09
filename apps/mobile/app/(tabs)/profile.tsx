@@ -13,6 +13,7 @@ import { Card, Divider, ListRow } from '../../src/components/ui/Surface';
 import { SignInPrompt } from '../../src/components/SignInPrompt';
 import { formatPoints } from '../../src/lib/format';
 import { AppIcon } from '../../src/components/ui/AppIcon';
+import { withTabTransition } from '../../src/components/ui/TabTransition';
 
 /**
  * Profile.
@@ -20,7 +21,7 @@ import { AppIcon } from '../../src/components/ui/AppIcon';
  * Account, loyalty, preferences and the legal links, grouped so the destructive
  * actions sit apart from everything else and cannot be hit by accident.
  */
-export default function ProfileScreen(): React.JSX.Element {
+function ProfileScreen(): React.JSX.Element {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -85,15 +86,15 @@ export default function ProfileScreen(): React.JSX.Element {
               borderRadius: 32,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: theme.colors.primaryMuted,
+              backgroundColor: theme.colors.accentSoft,
             }}
           >
             {initials ? (
-              <Text variant="title2" color="primary">
+              <Text variant="title2" color="heading">
                 {initials}
               </Text>
             ) : (
-              <AppIcon name="person" size={28} color={theme.colors.primary} />
+              <AppIcon name="person" size={28} color={theme.colors.heading} />
             )}
           </View>
         )}
@@ -109,16 +110,28 @@ export default function ProfileScreen(): React.JSX.Element {
       </View>
 
       {/* --------------------------------------------------------- points */}
-      <Card onPress={() => router.push('/profile/points')} accessibilityLabel="Grab Points">
+      {/* The redesign's espresso points card. */}
+      <Card
+        onPress={() => router.push('/profile/points')}
+        accessibilityLabel="Grab Points"
+        elevation="none"
+        surfaceStyle={{ backgroundColor: theme.colors.brand, borderRadius: 16, borderWidth: 0 }}
+      >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text variant="overline" color="textMuted">
+            <Text variant="overline" style={{ color: theme.colors.onBrandMuted }}>
               GRAB POINTS
             </Text>
-            <Text variant="title2">{formatPoints(points.data?.balance ?? 0)}</Text>
+            <Text variant="title2" style={{ color: theme.colors.onBrand }}>
+              {formatPoints(points.data?.balance ?? 0)}
+            </Text>
           </View>
           {points.data?.pointsToNextReward ? (
-            <Text variant="footnote" color="textMuted" style={{ maxWidth: 150 }} align="right">
+            <Text
+              variant="footnote"
+              style={{ maxWidth: 160, color: theme.colors.onBrandMuted }}
+              align="right"
+            >
               {points.data.pointsToNextReward} points until your next reward
             </Text>
           ) : null}
@@ -246,3 +259,5 @@ function Group({
     </View>
   );
 }
+
+export default withTabTransition(ProfileScreen);

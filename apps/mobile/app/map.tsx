@@ -1,9 +1,17 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { LngLatBounds } from '@maplibre/maplibre-react-native';
-import { discoveryCategories, LAUNCH_CITY } from '@grabgo/config';
+import {
+  categoryColors,
+  defaultCategoryColors,
+  discoveryCategories,
+  LAUNCH_CITY,
+  type CategoryColorSet,
+} from '@grabgo/config';
 import type { BusinessSummary, ListingSummary } from '@grabgo/types';
 import { GrabGoMap } from '../src/map/GrabGoMap';
 import { loadMapLibre } from '../src/map/native';
@@ -11,8 +19,10 @@ import { useListings, useMapCafes } from '../src/api/hooks';
 import { useLocationStore } from '../src/stores/location';
 import { Text } from '../src/components/ui/Text';
 import { AppIcon } from '../src/components/ui/AppIcon';
-import { CategoryTabs, primaryCategory, useCategoryColors } from '../src/components/CategoryTabs';
-import { useTheme } from '../src/theme';
+import { primaryCategory, useCategoryColors } from '../src/components/CategoryTabs';
+import { shadow, useTheme } from '../src/theme';
+import { categoryArt, FigmaIcon } from '../src/design/assets';
+import { selectionFeedback } from '../src/lib/feedback';
 
 /**
  * Every cafe in the city on one map, filterable by the same category tabs as
@@ -25,8 +35,14 @@ import { useTheme } from '../src/theme';
 export default function MapScreen(): React.JSX.Element {
   const theme = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const origin = useLocationStore((state) => state.origin());
+  const requestAndLocate = useLocationStore((state) => state.requestAndLocate);
   const [category, setCategory] = useState<string | null>(null);
+  // The craving panel's height, so the locate button and the map credit sit
+  // just above it whatever the text size.
+  const [panelHeight, setPanelHeight] = useState(250);
+  const aboveTray = insets.bottom + 8 + panelHeight + 12;
 
   const cafes = useMapCafes({
     ...(origin ? { latitude: origin.latitude, longitude: origin.longitude } : {}),
@@ -49,30 +65,18 @@ export default function MapScreen(): React.JSX.Element {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Stack.Screen
-        options={{ title: `Cafes in ${LAUNCH_CITY.name}`, headerBackButtonDisplayMode: 'minimal' }}
-      />
-      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
-
-      <View style={{ paddingVertical: theme.spacing.sm, gap: theme.spacing.xs }}>
-        <CategoryTabs
-          selected={category}
-          onChange={setCategory}
-          contentContainerStyle={{ paddingHorizontal: theme.spacing.base }}
-        />
-        <Text
-          variant="footnote"
-          color="textMuted"
-          style={{ paddingHorizontal: theme.spacing.base }}
-          accessibilityLiveRegion="polite"
-        >
-          {summary(cafes.isError, cafes.data?.length, label, listings.data?.length)}
-        </Text>
-      </View>
+      {/* The redesign floats its own controls over a full-screen map. */}
+      <Stack.Screen options={{ headerShown: false, title: `Cafes in ${LAUNCH_CITY.name}` }} />
+      {/* The map style is always light, so the clock and battery stay dark. */}
+      <StatusBar style="dark" />
 
       <GrabGoMap
         center={origin ? [origin.longitude, origin.latitude] : undefined}
         fitBounds={bounds}
+        fitPadding={{ top: insets.top + 170, bottom: aboveTray + 20, left: 40, right: 40 }}
+        // OpenStreetMap's licence needs the credit visible, so it moves above
+        // the tray instead of hiding under it.
+        attributionPosition={{ bottom: aboveTray, left: 16 }}
       >
         {/* Drawn first, so partner pins always sit on top of them. */}
         {listings.data && listings.data.length > 0 ? (
@@ -90,9 +94,216 @@ export default function MapScreen(): React.JSX.Element {
           />
         ))}
       </GrabGoMap>
+
+      {/* ------------------------------------------------- search panel */}
+      <View
+        style={[
+          styles.panel,
+          { top: insets.top + 8, backgroundColor: theme.colors.background, gap: 14 },
+          shadow('md'),
+        ]}
+      >
+        <View style={styles.spread}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              hitSlop={10}
+              style={{ marginLeft: -4, marginRight: 4 }}
+            >
+              <Ionicons name="chevron-back" size={22} color={theme.colors.heading} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/location')}
+              accessibilityRole="button"
+              accessibilityLabel={`City: ${LAUNCH_CITY.name}. Change area`}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}
+            >
+              <FigmaIcon name="mapPin" width={15} height={18} tint={theme.colors.heading} />
+              <Text variant="title3" color="heading" style={{ fontWeight: '700' }}>
+                {LAUNCH_CITY.name}
+              </Text>
+              <FigmaIcon name="chevronDown" size={16} tint={theme.colors.heading} />
+            </Pressable>
+          </View>
+          <Text variant="caption" color="textSecondary" style={{ fontWeight: '400' }}>
+            Café map
+          </Text>
+        </View>
+
+        {/* Opens Discover, where search lives, as on the home screen. */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/discover')}
+          accessibilityRole="search"
+          accessibilityLabel="Search cafés or neighborhoods"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+            height: 44,
+            paddingHorizontal: 12,
+            borderRadius: 14,
+            backgroundColor: theme.colors.accentSoft,
+          }}
+        >
+          <FigmaIcon name="search" size={18} tint={theme.colors.heading} />
+          <Text variant="subhead" color="textSecondary" style={{ fontSize: 14, fontWeight: '400' }}>
+            Search cafés or neighborhoods
+          </Text>
+        </Pressable>
+
+        <Text
+          variant="caption"
+          color="textSecondary"
+          style={{ fontWeight: '400', marginTop: -6 }}
+          accessibilityLiveRegion="polite"
+        >
+          {summary(cafes.isError, cafes.data?.length, label, listings.data?.length)}
+        </Text>
+      </View>
+
+      {/* ---------------------------------------------------- locate me */}
+      <Pressable
+        onPress={() => void requestAndLocate()}
+        accessibilityRole="button"
+        accessibilityLabel="Show cafes near my location"
+        style={({ pressed }) => [
+          styles.locate,
+          { bottom: aboveTray, backgroundColor: theme.colors.background, opacity: pressed ? 0.8 : 1 },
+          shadow('md'),
+        ]}
+      >
+        <FigmaIcon name="locateFixed" size={22} tint={theme.colors.heading} />
+      </Pressable>
+
+      {/* -------------------------------------------- what are you craving */}
+      <View
+        onLayout={(event) => setPanelHeight(Math.round(event.nativeEvent.layout.height))}
+        style={[
+          styles.panel,
+          { bottom: insets.bottom + 8, backgroundColor: theme.colors.background, gap: 12 },
+          shadow('md'),
+        ]}
+      >
+        <View style={styles.spread}>
+          <Text variant="bodyStrong" color="heading">
+            What are you craving?
+          </Text>
+          <FigmaIcon name="slidersHorizontal" size={18} tint={theme.colors.heading} />
+        </View>
+        <CravingGrid selected={category} onChange={setCategory} />
+      </View>
     </View>
   );
 }
+
+/**
+ * The map's category picker: a grid of coloured circles, three across, each
+ * with its symbol and name. Same categories and behaviour as the tabs on Home;
+ * tapping the selected one clears it.
+ */
+function CravingGrid({
+  selected,
+  onChange,
+}: {
+  selected: string | null;
+  onChange: (slug: string | null) => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const coloursFor = useCategoryColors();
+  // The design's order: drinks, then food, with Desserts alone and centred
+  // on the last row.
+  const order = ['coffee', 'tea', 'matcha', 'breakfast', 'bakery', 'healthy', 'desserts'];
+  const items = discoveryCategories
+    .filter((entry) => entry.isLive && categoryArt[entry.slug])
+    .sort((a, b) => order.indexOf(a.slug) - order.indexOf(b.slug));
+
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', rowGap: 8 }}>
+      {items.map((item) => {
+        const colours = coloursFor(item.slug);
+        const isSelected = selected === item.slug;
+        const art = categoryArt[item.slug];
+        return (
+          <Pressable
+            key={item.slug}
+            onPress={() => {
+              selectionFeedback();
+              onChange(isSelected ? null : item.slug);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+            accessibilityState={{ selected: isSelected }}
+            style={{ width: '33.33%', alignItems: 'center', gap: 7, paddingVertical: 2 }}
+          >
+            <View
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: colours.solid,
+                borderWidth: isSelected ? 2 : 0,
+                borderColor: theme.colors.heading,
+                transform: [{ scale: isSelected ? 1.12 : 1 }],
+              }}
+            >
+              {art ? (
+                <FigmaIcon
+                  name={art.craving}
+                  size={item.slug === 'desserts' ? 24 : 21}
+                  // The line symbols are drawn light; in dark mode the lifted
+                  // solids need dark symbols instead.
+                  tint={
+                    theme.isDark && item.slug !== 'desserts' ? colours.onSolid : undefined
+                  }
+                />
+              ) : null}
+            </View>
+            <Text
+              variant="caption"
+              color="textPrimary"
+              style={{ fontWeight: isSelected ? '600' : '400' }}
+              maxScale={1.3}
+              numberOfLines={1}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Marker colours for the always-light base map. */
+const MAP_INK = { paper: '#FFFFFF', text: '#201D1B', dot: '#8A7B74' } as const;
+
+const styles = StyleSheet.create({
+  panel: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    padding: 16,
+    borderRadius: 20,
+  },
+  spread: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  locate: {
+    position: 'absolute',
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 /** "6 cafes · 677 not on Grab & Go yet", "4 matcha cafes", or why there are none. */
 function summary(
@@ -120,7 +331,6 @@ function ListingDots({
   listings: ListingSummary[];
   onPress: (id: string) => void;
 }): React.JSX.Element | null {
-  const theme = useTheme();
   const maplibre = loadMapLibre();
   const shape = useMemo(
     () => ({
@@ -150,9 +360,9 @@ function ListingDots({
         id="listing-dots"
         type="circle"
         paint={{
-          'circle-color': theme.colors.textMuted,
+          'circle-color': MAP_INK.dot,
           'circle-opacity': 0.75,
-          'circle-stroke-color': theme.colors.surface,
+          'circle-stroke-color': MAP_INK.paper,
           'circle-stroke-width': 1.5,
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5.5, 17, 8],
         }}
@@ -218,13 +428,16 @@ function CafePin({
   onPress: () => void;
 }): React.JSX.Element | null {
   const theme = useTheme();
-  const coloursFor = useCategoryColors();
+  // The base map is always light, so markers use the light palette even in
+  // dark mode; dark-theme colours would sink into the cream map.
+  const lightColours = (slug: string): CategoryColorSet =>
+    (categoryColors[slug] ?? defaultCategoryColors).light;
   const maplibre = loadMapLibre();
   if (maplibre === null) return null;
 
   const { Marker } = maplibre;
   const open = cafe.isOpenNow && cafe.acceptingOrders;
-  const colours = coloursFor(category ?? '');
+  const colours = lightColours(category ?? '');
   const icon = discoveryCategories.find((entry) => entry.slug === category)?.icon ?? 'coffee';
 
   return (
@@ -246,7 +459,7 @@ function CafePin({
             justifyContent: 'center',
             backgroundColor: colours.solid,
             borderWidth: 2,
-            borderColor: theme.colors.surface,
+            borderColor: MAP_INK.paper,
           }}
         >
           <AppIcon name={icon} size={16} color={colours.onSolid} />
@@ -257,10 +470,10 @@ function CafePin({
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: theme.radii.sm,
-            backgroundColor: theme.colors.surface,
+            backgroundColor: MAP_INK.paper,
           }}
         >
-          <Text variant="caption" numberOfLines={1} maxScale={1.2}>
+          <Text variant="caption" numberOfLines={1} maxScale={1.2} style={{ color: MAP_INK.text }}>
             {cafe.name}
           </Text>
         </View>

@@ -17,6 +17,7 @@ import { useLocationStore } from '../src/stores/location';
 import { useRealtime } from '../src/api/realtime';
 import { ApiError, NetworkError } from '../src/api/client';
 import { registerForPushNotifications, usePushNotificationRouting } from '../src/lib/notifications';
+import { loadFonts } from '../src/theme/fonts';
 
 /**
  * Application root.
@@ -70,6 +71,7 @@ export default function RootLayout(): React.JSX.Element {
   useEffect(() => {
     const bootstrap = async (): Promise<void> => {
       await Promise.all([
+        loadFonts(),
         useAuthStore.getState().bootstrap(),
         useCartStore.getState().hydrate(),
         useLocationStore.getState().hydrate(),

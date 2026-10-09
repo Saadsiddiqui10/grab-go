@@ -40,7 +40,7 @@ export function referralShareMessage(code: string, rewardLabel = 'a free coffee'
  */
 export const discoveryCategories = [
   { slug: 'coffee', label: 'Coffee', icon: 'coffee', isLive: true },
-  { slug: 'tea', label: 'Tea', icon: 'tea', isLive: true },
+  { slug: 'tea', label: 'Chai', icon: 'tea', isLive: true },
   { slug: 'matcha', label: 'Matcha', icon: 'matcha', isLive: true },
   { slug: 'breakfast', label: 'Breakfast', icon: 'breakfast', isLive: true },
   { slug: 'bakery', label: 'Bakery', icon: 'bakery', isLive: true },

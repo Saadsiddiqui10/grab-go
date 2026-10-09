@@ -13,6 +13,7 @@ import { Button } from '../../src/components/ui/Button';
 import { OrderHistoryRow } from '../../src/components/OrderComponents';
 import { EmptyState, ErrorState, ListSkeleton } from '../../src/components/ui/States';
 import { SignInPrompt } from '../../src/components/SignInPrompt';
+import { withTabTransition } from '../../src/components/ui/TabTransition';
 
 /**
  * Orders.
@@ -24,7 +25,7 @@ import { SignInPrompt } from '../../src/components/SignInPrompt';
 
 type Filter = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
-export default function OrdersScreen(): React.JSX.Element {
+function OrdersScreen(): React.JSX.Element {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -58,7 +59,9 @@ export default function OrdersScreen(): React.JSX.Element {
           gap: theme.spacing.md,
         }}
       >
-        <Text variant="title2">Orders</Text>
+        <Text variant="title1" color="heading" style={{ fontSize: 27, lineHeight: 33 }}>
+          Orders
+        </Text>
 
         {cartCount > 0 ? (
           <Card onPress={() => router.push('/cart')} accessibilityLabel="Open your cart">
@@ -147,3 +150,5 @@ export default function OrdersScreen(): React.JSX.Element {
     </View>
   );
 }
+
+export default withTabTransition(OrdersScreen);

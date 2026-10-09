@@ -112,12 +112,11 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   origin() {
     const state = get();
     if (state.permission === 'granted' && state.coords) return state.coords;
-    if (state.manualArea) {
-      return {
-        latitude: state.manualArea.latitude,
-        longitude: state.manualArea.longitude,
-      };
-    }
+    // Return the stored area itself, not a new { latitude, longitude }: this
+    // is read through store selectors, and a fresh object on every read looks
+    // like a change every time, which re-renders forever ("Maximum update
+    // depth exceeded" after picking an area).
+    if (state.manualArea) return state.manualArea;
     return null;
   },
 

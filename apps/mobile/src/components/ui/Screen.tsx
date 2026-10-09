@@ -62,6 +62,10 @@ export interface ScrollScreenProps extends Omit<ScrollViewProps, 'style'> {
   children: React.ReactNode;
   padded?: boolean;
   background?: 'background' | 'surface';
+  /** A raw fill that overrides `background`, e.g. a category wash. */
+  backgroundColor?: string;
+  /** Drawn behind the content and scrolling with it, e.g. a pattern. */
+  underlay?: React.ReactNode;
   /** Extra bottom space so a floating bar does not cover the last row. */
   footerSpace?: number;
 }
@@ -70,6 +74,8 @@ export function ScrollScreen({
   children,
   padded = true,
   background = 'background',
+  backgroundColor,
+  underlay,
   footerSpace = 0,
   contentContainerStyle,
   ...props
@@ -78,7 +84,7 @@ export function ScrollScreen({
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.flex, { backgroundColor: theme.colors[background] }]}>
+    <View style={[styles.flex, { backgroundColor: backgroundColor ?? theme.colors[background] }]}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <ScrollView
         {...props}
@@ -95,6 +101,7 @@ export function ScrollScreen({
           contentContainerStyle,
         ]}
       >
+        {underlay}
         {children}
       </ScrollView>
     </View>

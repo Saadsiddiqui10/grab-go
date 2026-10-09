@@ -135,10 +135,11 @@ export function EmptyState({
           borderRadius: theme.radii.pill,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: theme.colors.surfaceMuted,
+          // The redesign's filled espresso circle with a light glyph.
+          backgroundColor: theme.colors.primary,
         }}
       >
-        <Ionicons name={icon} size={28} color={theme.colors.textMuted} />
+        <Ionicons name={icon} size={28} color={theme.colors.textOnPrimary} />
       </View>
 
       <View style={{ gap: 4, alignItems: 'center' }}>
@@ -153,7 +154,7 @@ export function EmptyState({
       </View>
 
       {actionLabel && onAction ? (
-        <Button label={actionLabel} variant="secondary" size="sm" onPress={onAction} />
+        <Button label={actionLabel} variant="primary" size="sm" onPress={onAction} />
       ) : null}
     </View>
   );

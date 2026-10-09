@@ -1,0 +1,8 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="21" height="21" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Category icon">
+<path id="Chai cup" d="M14.125 9.5V12.25C14.125 13.7928 13.5566 14.8813 12.6562 15.6016C11.7334 16.3398 10.3856 16.75 8.75 16.75C7.11439 16.75 5.76659 16.3398 4.84375 15.6016C3.94343 14.8813 3.375 13.7928 3.375 12.25V9.5H14.125Z" stroke="#FAFAF5" stroke-width="1.5"/>
+<path id="Cup handle" d="M14.875 9.625H16.7026C20.3577 9.625 20.3577 14.875 14.875 14.875" stroke="#FAFAF5" stroke-width="1.5"/>
+<path id="Saucer" d="M1.75 19.25H18.375" stroke="#FAFAF5" stroke-width="1.5"/>
+<path id="Tea steam" d="M8.27525 1.75C1.57326 3.5 13.3017 4.375 6.59975 6.125" stroke="#FAFAF5" stroke-width="1.5"/>
+</g>
+</svg>

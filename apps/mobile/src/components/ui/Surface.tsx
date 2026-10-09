@@ -32,6 +32,8 @@ export interface CardProps {
   padded?: boolean;
   elevation?: 'none' | 'sm' | 'md' | 'lg';
   style?: StyleProp<ViewStyle>;
+  /** Overrides for the card's own surface (fill, corners, border). */
+  surfaceStyle?: ViewStyle;
   accessibilityLabel?: string;
 }
 
@@ -41,6 +43,7 @@ export function Card({
   padded = true,
   elevation = 'sm',
   style,
+  surfaceStyle,
   accessibilityLabel,
 }: CardProps): React.JSX.Element {
   const theme = useTheme();
@@ -55,6 +58,7 @@ export function Card({
     padding: padded ? theme.spacing.base : 0,
     overflow: 'hidden',
     ...shadow(elevation),
+    ...surfaceStyle,
   };
 
   if (!onPress) {
@@ -188,11 +192,18 @@ export function ProgressBar({
   progress,
   label,
   tone = 'primary',
+  trackColor,
+  fillColor,
+  height = 8,
 }: {
   /** 0..1 */
   progress: number;
   label?: string;
   tone?: 'primary' | 'success';
+  /** Overrides for bars drawn on a dark card. */
+  trackColor?: string;
+  fillColor?: string;
+  height?: number;
 }): React.JSX.Element {
   const theme = useTheme();
   const width = useRef(new Animated.Value(0)).current;
@@ -210,7 +221,7 @@ export function ProgressBar({
     }).start();
   }, [clamped, width, theme.motion.slow, reduceMotion]);
 
-  const colour = tone === 'success' ? theme.colors.success : theme.colors.primary;
+  const colour = fillColor ?? (tone === 'success' ? theme.colors.success : theme.colors.primary);
 
   return (
     <View
@@ -221,9 +232,9 @@ export function ProgressBar({
     >
       <View
         style={{
-          height: 8,
+          height,
           borderRadius: theme.radii.pill,
-          backgroundColor: theme.colors.surfaceMuted,
+          backgroundColor: trackColor ?? theme.colors.surfaceMuted,
           overflow: 'hidden',
         }}
       >
@@ -344,7 +355,7 @@ export function SegmentedControl<T extends string>({
         styles.segmented,
         isIOS
           ? {
-              backgroundColor: theme.colors.surfaceMuted,
+              backgroundColor: theme.colors.field,
               borderRadius: theme.radii.md,
               padding: 3,
             }
@@ -370,8 +381,9 @@ export function SegmentedControl<T extends string>({
               { minHeight: isIOS ? 34 : minTouchTarget },
               isIOS
                 ? {
-                    borderRadius: theme.radii.sm,
-                    backgroundColor: selected ? theme.colors.surface : 'transparent',
+                    // The redesign's filled espresso pill for the selected segment.
+                    borderRadius: theme.radii.sm + 2,
+                    backgroundColor: selected ? theme.colors.primary : 'transparent',
                     ...(selected ? shadow('sm') : {}),
                   }
                 : {
@@ -382,7 +394,7 @@ export function SegmentedControl<T extends string>({
           >
             <Text
               variant={selected ? 'subhead' : 'footnote'}
-              color={selected ? (isIOS ? 'textPrimary' : 'primary') : 'textMuted'}
+              color={selected ? (isIOS ? 'textOnPrimary' : 'primary') : 'textSecondary'}
               maxScale={1.3}
               numberOfLines={1}
             >
@@ -482,18 +494,19 @@ export function ListRow({
       {icon ? (
         <View
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: theme.radii.sm,
+            width: 34,
+            height: 34,
+            borderRadius: 9,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: destructive ? theme.colors.dangerMuted : theme.colors.surfaceMuted,
+            backgroundColor: destructive ? theme.colors.dangerMuted : theme.colors.field,
           }}
         >
+          {/* The redesign's filled glyphs, in espresso brown. */}
           <Ionicons
-            name={icon}
-            size={17}
-            color={destructive ? theme.colors.danger : theme.colors.textSecondary}
+            name={destructive ? icon : (icon.replace(/-outline$/, '') as typeof icon)}
+            size={18}
+            color={destructive ? theme.colors.danger : theme.colors.primary}
           />
         </View>
       ) : null}

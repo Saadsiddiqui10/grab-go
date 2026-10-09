@@ -1,0 +1,19 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Cake sticker">
+<path id="Vector" d="M5 11V8.5C5 7.5 5.66667 7 7 7H10V4H14V7H17C18.3333 7 19 7.5 19 8.5V11H20V20H4V11H5Z" fill="#F7C6D9" stroke="white" stroke-width="3" stroke-linejoin="round"/>
+<path id="Vector_2" d="M11 4C10.3333 2.66667 10.6667 1.66667 12 1C13.3333 2.33333 13.6667 3.33333 13 4H11Z" fill="#BB8716"/>
+<path id="Vector_3" d="M12.4 4H11.6C11.2686 4 11 4.26863 11 4.6V7.4C11 7.73137 11.2686 8 11.6 8H12.4C12.7314 8 13 7.73137 13 7.4V4.6C13 4.26863 12.7314 4 12.4 4Z" fill="white"/>
+<path id="Vector_4" d="M6 8.5C6 7.83333 6.66667 7.5 8 7.5H16C17.3333 7.5 18 7.83333 18 8.5V12H6V8.5Z" fill="#F7C6D9" stroke="#B87592" stroke-width="0.65"/>
+<path id="Vector_5" d="M6 9H18V10C17.3333 11.3333 16.6667 11.5 16 10.5C15.3333 9.83333 14.6667 10 14 11C13.3333 12 12.6667 11.8333 12 10.5C11.3333 9.83333 10.6667 10 10 11C9.33333 11.6667 8.66667 11.5 8 10.5C7.33333 10.1667 6.66667 10.3333 6 11V9Z" fill="white"/>
+<path id="Vector_6" d="M4.5 12H19.5V19.5H4.5V12Z" fill="#F7C6D9" stroke="#B87592" stroke-width="0.65"/>
+<path id="Vector_7" d="M4.5 12H19.5V13.5C18.5 14.8333 17.6667 14.8333 17 13.5C16.3333 12.8333 15.6667 13.1667 15 14.5C14.3333 15.5 13.6667 15.3333 13 14C12.3333 13 11.6667 13.1667 11 14.5C10.3333 15.5 9.66667 15.3333 9 14C8.33333 13 7.66667 13 7 14C6 15 5.16667 14.8333 4.5 13.5V12Z" fill="white"/>
+<g id="Vector_8">
+<path d="M5 17H19Z" fill="black"/>
+<path d="M5 17H19" stroke="#B87592"/>
+</g>
+<g id="Vector_9">
+<path d="M3.5 20H20.5Z" fill="black"/>
+<path d="M3.5 20H20.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</g>
+</g>
+</svg>

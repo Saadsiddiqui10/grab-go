@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Platform, View } from 'react-native';
+import { ActionSheetIOS, Alert, Animated, FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BusinessSummary } from '@grabgo/types';
@@ -8,11 +8,17 @@ import { useLocationStore } from '../../src/stores/location';
 import { useDiscoverCafes, useFavourites, useToggleFavourite } from '../../src/api/hooks';
 import { Text } from '../../src/components/ui/Text';
 import { SearchInput } from '../../src/components/ui/Input';
-import { Chip, SegmentedControl } from '../../src/components/ui/Surface';
+import { LocationRow, MapButton } from '../../src/components/HeaderControls';
+import { FigmaIcon, type FigmaAssetName } from '../../src/design/assets';
+import { selectionFeedback } from '../../src/lib/feedback';
 import { CafeCard } from '../../src/components/CafeCard';
-import { CategoryTabs } from '../../src/components/CategoryTabs';
+import { CategoryTabs, useCategoryColors } from '../../src/components/CategoryTabs';
+import { CategoryPattern } from '../../src/design/CategoryPattern';
+import { SunPattern, useBreakfastSkin } from '../../src/design/breakfast';
 import { EmptyState, ErrorState, ListSkeleton } from '../../src/components/ui/States';
 import { StatusBar } from 'expo-status-bar';
+import { withTabTransition } from '../../src/components/ui/TabTransition';
+import { enterStyle, useBlendedColor, useEnterOnChange } from '../../src/lib/motion';
 
 /**
  * Discover.
@@ -25,12 +31,13 @@ import { StatusBar } from 'expo-status-bar';
 
 type SortOption = 'RECOMMENDED' | 'NEAREST' | 'FASTEST' | 'RATING';
 
-export default function DiscoverScreen(): React.JSX.Element {
+function DiscoverScreen(): React.JSX.Element {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const origin = useLocationStore((state) => state.origin());
+  const locationLabel = useLocationStore((state) => state.label());
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -63,49 +70,130 @@ export default function DiscoverScreen(): React.JSX.Element {
     { value: 'FASTEST', label: 'Fastest' },
     { value: 'RATING', label: 'Top rated' },
   ];
+  const currentSortLabel = sortOptions.find((option) => option.value === sort)?.label ?? 'Best';
+
+  // The same choices as before, offered from the "Sort by" pill: a native
+  // action sheet on iOS, an alert list on Android.
+  const chooseSort = (): void => {
+    const labels = sortOptions.map((option) =>
+      option.value === sort ? `${option.label} ✓` : option.label,
+    );
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { title: 'Sort cafes by', options: [...labels, 'Cancel'], cancelButtonIndex: labels.length },
+        (index) => {
+          const picked = sortOptions[index];
+          if (picked) setSort(picked.value);
+        },
+      );
+      return;
+    }
+    Alert.alert('Sort cafes by', undefined, [
+      ...sortOptions.map((option) => ({ text: option.label, onPress: () => setSort(option.value) })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
+
+  // The same category theming as Home: Breakfast's full look, otherwise the
+  // category's wash, wallpaper and colours.
+  const coloursFor = useCategoryColors();
+  const breakfastSkin = useBreakfastSkin();
+  const skin = category === 'breakfast' ? breakfastSkin : null;
+  const tint = category && !skin ? coloursFor(category) : null;
+  const page = skin?.page ?? tint?.wash ?? theme.colors.background;
+  const pageColour = useBlendedColor(page);
+  const categoryEnter = useEnterOnChange(category);
+  const pillColours = skin
+    ? { fill: skin.mapButton, ink: skin.text, selected: skin.accent }
+    : tint
+      ? { fill: tint.soft, ink: tint.ink, selected: tint.solid }
+      : undefined;
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+    // The page colour blends into the new category's wash rather than snapping.
+    <Animated.View style={{ flex: 1, backgroundColor: pageColour }}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
 
-      <View
-        style={{
-          paddingTop: insets.top + theme.spacing.sm,
-          paddingHorizontal: theme.spacing.base,
-          paddingBottom: theme.spacing.sm,
-          gap: theme.spacing.md,
-          backgroundColor: theme.colors.background,
-        }}
-      >
-        <Text variant="title2">Discover</Text>
+      {/* Wallpaper behind everything; stays put while the list scrolls. */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: categoryEnter }]}>
+        {skin ? (
+          <SunPattern />
+        ) : tint && category ? (
+          <CategoryPattern slug={category} colour={tint.ink} />
+        ) : null}
+      </Animated.View>
 
-        <SearchInput value={search} onChange={setSearch} />
+      <View style={{ paddingTop: insets.top + theme.spacing.sm }}>
+        <View style={{ paddingHorizontal: theme.spacing.base, paddingBottom: theme.spacing.base, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text
+              variant="title1"
+              color="heading"
+              style={[
+                { fontSize: 27, lineHeight: 33 },
+                skin ? { color: skin.text } : tint ? { color: tint.ink } : null,
+              ]}
+            >
+              Discover
+            </Text>
+            <MapButton
+              onPress={() => router.push('/map')}
+              background={skin?.mapButton ?? tint?.soft}
+              iconColour={skin?.accent ?? tint?.ink}
+            />
+          </View>
+          <View style={{ marginTop: -12 }}>
+            <LocationRow
+              label={locationLabel}
+              onPress={() => router.push('/location')}
+              pinColour={skin?.accent ?? tint?.ink}
+              textColour={skin?.text}
+            />
+          </View>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            fill={skin?.field ?? tint?.soft}
+            inkColour={skin?.muted}
+          />
+        </View>
 
         <CategoryTabs
           selected={category}
           onChange={setCategory}
-          leading={
-            <Chip
-              label="Open now"
-              icon={(color) => (
-                <View
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: openNow ? color : theme.colors.success,
-                  }}
-                />
-              )}
-              selected={openNow}
-              onPress={() => setOpenNow((value) => !value)}
-            />
-          }
+          contentContainerStyle={{ paddingHorizontal: theme.spacing.base }}
         />
 
-        <SegmentedControl options={sortOptions} value={sort} onChange={setSort} />
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: theme.spacing.base,
+            paddingTop: 12,
+            paddingBottom: theme.spacing.xs,
+          }}
+        >
+          <FilterPill
+            label="Open now"
+            icon="clock"
+            selected={openNow}
+            onPress={() => setOpenNow((value) => !value)}
+            colours={pillColours}
+          />
+          <FilterPill
+            label={sort === 'RECOMMENDED' ? 'Sort by' : `Sort: ${currentSortLabel}`}
+            icon="arrowUpDown"
+            trailing="chevronDown"
+            muted
+            onPress={chooseSort}
+            colours={pillColours}
+          />
+        </View>
       </View>
 
+      {/* Results fade and rise in after a category switch. */}
+      <Animated.View style={[{ flex: 1 }, enterStyle(categoryEnter)]}>
       {query.isLoading ? (
         <View style={{ padding: theme.spacing.base }}>
           <ListSkeleton rows={5} />
@@ -139,7 +227,7 @@ export default function DiscoverScreen(): React.JSX.Element {
           contentContainerStyle={{
             padding: theme.spacing.base,
             paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 70 : 24),
-            gap: theme.spacing.base,
+            gap: 12,
           }}
           showsVerticalScrollIndicator={false}
           onEndReachedThreshold={0.6}
@@ -157,6 +245,9 @@ export default function DiscoverScreen(): React.JSX.Element {
             <CafeCard
               cafe={item}
               onPress={() => router.push(`/cafe/${item.id}`)}
+              pour={category}
+              tint={tint}
+              skin={skin}
               isFavourite={favouriteIds.has(item.id)}
               onToggleFavourite={() =>
                 toggleFavourite.mutate({
@@ -168,6 +259,64 @@ export default function DiscoverScreen(): React.JSX.Element {
           )}
         />
       )}
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
+
+/** A rounded filter control from the redesign: "Open now", "Sort by". */
+function FilterPill({
+  label,
+  icon,
+  trailing,
+  selected = false,
+  muted = false,
+  onPress,
+  colours,
+}: {
+  label: string;
+  icon: FigmaAssetName;
+  trailing?: FigmaAssetName;
+  selected?: boolean;
+  /** The neutral field fill (Sort) rather than the pink tint (Open now). */
+  muted?: boolean;
+  onPress: () => void;
+  /** A selected category's colours, matching the themed page. */
+  colours?: { fill: string; ink: string; selected: string };
+}): React.JSX.Element {
+  const theme = useTheme();
+  // White on the filled maroon in both modes; the accent ink otherwise.
+  const foreground = selected ? '#FFFFFF' : (colours?.ink ?? theme.colors.onAccentSoft);
+
+  return (
+    <Pressable
+      onPress={() => {
+        selectionFeedback();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={muted ? undefined : { selected }}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        minHeight: 36,
+        paddingHorizontal: 12,
+        borderRadius: 100,
+        backgroundColor: selected
+          ? (colours?.selected ?? theme.colors.accent)
+          : (colours?.fill ?? (muted ? theme.colors.field : theme.colors.accentSoft)),
+        opacity: pressed ? 0.75 : 1,
+      })}
+    >
+      <FigmaIcon name={icon} size={16} tint={foreground} />
+      <Text variant="footnote" style={{ color: foreground, fontWeight: '500' }} maxScale={1.4}>
+        {label}
+      </Text>
+      {trailing ? <FigmaIcon name={trailing} size={13} tint={foreground} /> : null}
+    </Pressable>
+  );
+}
+
+export default withTabTransition(DiscoverScreen);

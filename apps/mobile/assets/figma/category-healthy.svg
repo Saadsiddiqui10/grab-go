@@ -1,0 +1,8 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Category icon">
+<path id="Fruit" d="M6.99921 4.6992C4.29974 4.6992 3 2.89956 3 0.999945C5.69947 0.700006 7.69907 1.99974 6.99921 4.6992Z" fill="#E39C6B"/>
+<path id="Cup detail" d="M9 12.4992H15" stroke="white" stroke-opacity="0.8" stroke-width="1.2" stroke-linecap="round"/>
+<path id="Straw" d="M12 6L14.0002 1.9992H19.0008" stroke="black" stroke-width="2" stroke-linecap="round"/>
+<path id="Smoothie" d="M5.0007 9.00015H18.9993L17.1995 20.3007C16.9995 21.3008 16.1996 22.0008 15.1997 22.0008H8.80032C7.80042 22.0008 7.0005 21.3008 6.80052 20.3007L5.0007 9.00015ZM4.0008 6H19.9992V8.0001H4.0008V6Z" fill="#E39C6B"/>
+</g>
+</svg>

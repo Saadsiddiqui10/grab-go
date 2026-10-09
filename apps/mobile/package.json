@@ -13,6 +13,8 @@
     "eas-build-post-install": "cd ../.. && npm run build:packages"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.4.2",
+    "@expo-google-fonts/fraunces": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@grabgo/config": "0.1.0",
     "@grabgo/core": "0.1.0",

@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Category icon" clip-path="url(#clip0_0_53)">
+<path id="Rays" d="M12 1.0008V4.00058M12 19.9994V22.9992M1.0008 12H4.00058M19.9994 12H22.9992M4.20057 4.20057L6.30041 6.30041M17.6996 17.6996L19.7994 19.7994M4.20057 19.7994L6.30041 17.6996M17.6996 6.30041L19.7994 4.20057" stroke="black" stroke-width="2" stroke-linecap="round"/>
+<path id="Sun" d="M12 16.9992C14.761 16.9992 16.9992 14.761 16.9992 12C16.9992 9.23902 14.761 7.0008 12 7.0008C9.23902 7.0008 7.0008 9.23902 7.0008 12C7.0008 14.761 9.23902 16.9992 12 16.9992Z" fill="#EBE267"/>
+</g>
+<defs>
+<clipPath id="clip0_0_53">
+<rect width="24" height="24" fill="white"/>
+</clipPath>
+</defs>
+</svg>

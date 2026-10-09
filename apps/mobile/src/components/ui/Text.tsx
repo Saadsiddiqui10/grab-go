@@ -1,9 +1,10 @@
-import { Text as RNText, View, type TextProps as RNTextProps } from 'react-native';
-import { textStyle, useTheme, type ThemeColors, type TypographyToken } from '../../theme';
+import { StyleSheet, Text as RNText, View, type TextProps as RNTextProps } from 'react-native';
+import { fontFor } from '../../theme/fonts';
+import { textStyle, useTheme, type AppColors, type TypographyToken } from '../../theme';
 
 export interface TextProps extends RNTextProps {
   variant?: TypographyToken;
-  color?: keyof ThemeColors;
+  color?: keyof AppColors;
   align?: 'left' | 'center' | 'right';
   /**
    * Cap how far Dynamic Type / font-size settings can scale this text.
@@ -45,29 +46,41 @@ export function Text({
 }: TextProps): React.JSX.Element {
   const theme = useTheme();
 
+  // Resolve the final weight (a caller may override it), then pick the face:
+  // headings in Fraunces, everything else in DM Sans. Custom fonts carry
+  // their weight in the family, so `fontWeight` is dropped once mapped.
+  const merged = StyleSheet.flatten([
+    textStyle(variant),
+    { color: theme.colors[color] },
+    align ? { textAlign: align } : null,
+    style,
+  ]);
+  const family = merged.fontFamily ? undefined : fontFor(merged.fontWeight, headingVariants.has(variant));
+  const finalStyle = family ? { ...merged, fontFamily: family, fontWeight: undefined } : merged;
+
   return (
-    <RNText
-      {...props}
-      maxFontSizeMultiplier={maxScale ?? defaultMaxScale[variant]}
-      style={[
-        textStyle(variant),
-        { color: theme.colors[color] },
-        align ? { textAlign: align } : null,
-        style,
-      ]}
-    />
+    <RNText {...props} maxFontSizeMultiplier={maxScale ?? defaultMaxScale[variant]} style={finalStyle} />
   );
 }
+
+/** Variants set in the heading face. */
+const headingVariants = new Set<TypographyToken>(['display', 'title1', 'title2', 'title3']);
 
 /** Section heading used above every home-screen rail and settings group. */
 export function SectionTitle({
   children,
   subtitle,
   action,
+  tone,
+  subtone,
 }: {
   children: React.ReactNode;
   subtitle?: string | null;
   action?: React.ReactNode;
+  /** Heading colour override, e.g. a selected category's ink. */
+  tone?: string;
+  /** Subtitle colour override; defaults to `tone`. */
+  subtone?: string;
 }): React.JSX.Element {
   const theme = useTheme();
 
@@ -82,9 +95,15 @@ export function SectionTitle({
       }}
     >
       <View style={{ flex: 1 }}>
-        <Text variant="title3">{children}</Text>
+        <Text variant="title3" color="heading" style={tone ? { color: tone } : null}>
+          {children}
+        </Text>
         {subtitle ? (
-          <Text variant="footnote" color="textMuted" style={{ marginTop: 2 }}>
+          <Text
+            variant="footnote"
+            color="heading"
+            style={[{ marginTop: 5, fontWeight: '400' }, (subtone ?? tone) ? { color: subtone ?? tone } : null]}
+          >
             {subtitle}
           </Text>
         ) : null}

@@ -275,55 +275,57 @@ export const orderStatusColors = {
 } as const;
 
 /**
- * Discovery category colours, each taken from its drink or food: espresso
- * brown, karak amber, matcha green and so on.
+ * Discovery category colours, from the customer app's Figma design.
  *
- * `solid` fills a selected tab and a map pin, with `onSolid` text on top;
- * `soft` tints an unselected tab. Light `solid`s hold white text at 4.5:1 or
- * better. Dark mode flips to lighter `solid`s with dark text, since a deep
- * brown pin disappears on a dark map.
+ * `soft` fills a category tile; `solid` is the category's own colour (the map
+ * filter circle, a selected tile, a map pin) with `onSolid` on top; `wash`
+ * tints the whole home screen while that category is selected, with `ink` for
+ * headings drawn on it. Dark values are designed for an espresso-black page:
+ * deep tinted tiles, lifted solids, and washes dark enough for latte text.
  */
 export interface CategoryColorSet {
   solid: string;
   onSolid: string;
   soft: string;
+  wash: string;
+  ink: string;
 }
 
 export const categoryColors: Record<string, { light: CategoryColorSet; dark: CategoryColorSet }> = {
   coffee: {
-    light: { solid: '#6F4E37', onSolid: palette.white, soft: '#F3EAE3' },
-    dark: { solid: '#C8A07F', onSolid: palette.espresso[900], soft: '#33261E' },
+    light: { solid: '#4D2112', onSolid: '#FAFAF5', soft: '#F3EAE4', wash: '#EBDDD2', ink: '#4D2112' },
+    dark: { solid: '#C89A7E', onSolid: '#1E120C', soft: '#33251E', wash: '#241913', ink: '#E8CDBB' },
   },
   tea: {
-    light: { solid: '#B45309', onSolid: palette.white, soft: '#FDF0E1' },
-    dark: { solid: '#F59E0B', onSolid: palette.espresso[900], soft: '#3A2A12' },
+    light: { solid: '#733708', onSolid: '#FAFAF5', soft: '#FAEFDE', wash: '#F3DEC2', ink: '#733708' },
+    dark: { solid: '#E0A066', onSolid: '#1E120C', soft: '#3A2817', wash: '#271A10', ink: '#F0C99E' },
   },
   matcha: {
-    light: { solid: '#4D7C0F', onSolid: palette.white, soft: '#EEF5E0' },
-    dark: { solid: '#A3C76D', onSolid: palette.espresso[900], soft: '#263319' },
+    light: { solid: '#326B0D', onSolid: '#FAFAF5', soft: '#EDF4DF', wash: '#DCE9C6', ink: '#326B0D' },
+    dark: { solid: '#9CCB6E', onSolid: '#11200A', soft: '#243019', wash: '#172113', ink: '#C3E2A3' },
   },
   breakfast: {
-    light: { solid: '#A16207', onSolid: palette.white, soft: '#FBF3D9' },
-    dark: { solid: '#FACC15', onSolid: palette.espresso[900], soft: '#3A3212' },
+    light: { solid: '#EBE267', onSolid: '#4D2112', soft: '#FAF5D8', wash: '#F4ECB4', ink: '#6E5C08' },
+    dark: { solid: '#E8DE6A', onSolid: '#2A2408', soft: '#353119', wash: '#24210F', ink: '#EFE6A0' },
   },
   bakery: {
-    light: { solid: '#9A3412', onSolid: palette.white, soft: '#FBE9E1' },
-    dark: { solid: '#FB923C', onSolid: palette.espresso[900], soft: '#3B2318' },
+    light: { solid: '#BB8716', onSolid: '#FAFAF5', soft: '#F7EDD7', wash: '#F2CFA6', ink: '#B5560F' },
+    dark: { solid: '#E2B04E', onSolid: '#2A1C06', soft: '#3A2D16', wash: '#2A1D0E', ink: '#F2C98A' },
   },
   desserts: {
-    light: { solid: '#BE185D', onSolid: palette.white, soft: '#FCE7F1' },
-    dark: { solid: '#F472B6', onSolid: palette.espresso[900], soft: '#3A1F2C' },
+    light: { solid: '#F7C6D9', onSolid: '#7A2E4D', soft: '#FBEAF1', wash: '#F8D9E5', ink: '#9A3A62' },
+    dark: { solid: '#F0A9C4', onSolid: '#3A1222', soft: '#3A2430', wash: '#28161F', ink: '#F6C4D8' },
   },
   healthy: {
-    light: { solid: '#0F766E', onSolid: palette.white, soft: '#DDF4F1' },
-    dark: { solid: '#2DD4BF', onSolid: palette.espresso[900], soft: '#15302D' },
+    light: { solid: '#E39C6B', onSolid: '#FAFAF5', soft: '#F9EBDD', wash: '#F4D8C0', ink: '#9A4E1E' },
+    dark: { solid: '#EBAA7C', onSolid: '#2A160A', soft: '#3A281C', wash: '#2A1B12', ink: '#F3C6A6' },
   },
 };
 
 /** Categories without their own colour fall back to the brand. */
 export const defaultCategoryColors = {
-  light: { solid: palette.ember[600], onSolid: palette.white, soft: palette.ember[50] },
-  dark: { solid: palette.ember[400], onSolid: palette.espresso[900], soft: '#3A2216' },
+  light: { solid: '#3D1A07', onSolid: '#FFFFFF', soft: '#F5E8E4', wash: '#F5E8E4', ink: '#3D1A07' },
+  dark: { solid: '#D9A07C', onSolid: '#241510', soft: '#3A2620', wash: '#1E1713', ink: '#F3E3D6' },
 } as const satisfies { light: CategoryColorSet; dark: CategoryColorSet };
 
 /** Emit the light/dark themes as CSS custom properties for the web dashboards. */

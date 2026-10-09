@@ -25,6 +25,7 @@ import { SignInPrompt } from '../../src/components/SignInPrompt';
 import { errorFeedback, successFeedback } from '../../src/lib/feedback';
 import { ApiError } from '../../src/api/client';
 import { Ionicons } from '@expo/vector-icons';
+import { withTabTransition } from '../../src/components/ui/TabTransition';
 
 /**
  * Rewards.
@@ -33,7 +34,7 @@ import { Ionicons } from '@expo/vector-icons';
  * redeemed now, then the ladder above it. Redeeming issues a code the customer
  * owns and can spend on any qualifying order.
  */
-export default function RewardsScreen(): React.JSX.Element {
+function RewardsScreen(): React.JSX.Element {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -88,7 +89,11 @@ export default function RewardsScreen(): React.JSX.Element {
       footerSpace={Platform.OS === 'ios' ? 50 : 0}
       contentContainerStyle={{ paddingTop: insets.top + theme.spacing.sm }}
     >
-      <Text variant="title2" style={{ marginBottom: theme.spacing.base }}>
+      <Text
+        variant="title1"
+        color="heading"
+        style={{ fontSize: 27, lineHeight: 33, marginBottom: theme.spacing.base }}
+      >
         Rewards
       </Text>
 
@@ -121,7 +126,7 @@ export default function RewardsScreen(): React.JSX.Element {
       ) : null}
 
       {/* ------------------------------------------------------ ladder */}
-      <View style={{ marginTop: theme.spacing.xl, gap: theme.spacing.md }}>
+      <View style={{ marginTop: theme.spacing.base, gap: 12 }}>
         <SectionTitle>All rewards</SectionTitle>
 
         {rewards.isLoading ? (
@@ -190,3 +195,5 @@ export default function RewardsScreen(): React.JSX.Element {
     </ScrollScreen>
   );
 }
+
+export default withTabTransition(RewardsScreen);

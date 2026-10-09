@@ -1,0 +1,7 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Category icon">
+<path id="Vein" d="M7.3992 15.9C10.3997 12.9 13.5002 10.2 16.9008 7.5" stroke="white" stroke-opacity="0.8" stroke-width="1.1" stroke-linecap="round"/>
+<path id="Stem" d="M3 21C5.99983 15.0003 10.9995 11.0006 16.9992 7.0008" stroke="black" stroke-width="1.8" stroke-linecap="round"/>
+<path id="Leaf" fill-rule="evenodd" clip-rule="evenodd" d="M20.8008 2.29929C13.1004 1.79927 4.2 4.99941 4.2 12.4997C4.2 15.6999 6.70012 18.3 10.0003 18.3C18.2007 18.3 20.5008 9.89963 20.8008 2.29929ZM6.50011 16.7999C10.0003 13.4998 13.5004 10.7997 17.5006 6.9995Z" fill="#326B0D"/>
+</g>
+</svg>

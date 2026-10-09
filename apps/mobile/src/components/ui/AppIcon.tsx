@@ -22,6 +22,7 @@ const icons = {
   pizza: { ios: 'fork.knife', fallback: 'pizza' },
   restaurants: { ios: 'fork.knife', fallback: 'restaurant' },
   map: { ios: 'map', fallback: 'map-outline' },
+  mapFilled: { ios: 'map.fill', fallback: 'map' },
   person: { ios: 'person.fill', fallback: 'person' },
 } as const satisfies Record<string, { ios: SFSymbol; fallback: keyof typeof Ionicons.glyphMap }>;
 

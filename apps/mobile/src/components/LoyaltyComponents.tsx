@@ -6,6 +6,7 @@ import { formatPKR, formatPoints, formatShortDate } from '../lib/format';
 import { Text } from './ui/Text';
 import { Badge, Card, Divider, ProgressBar } from './ui/Surface';
 import { Button } from './ui/Button';
+import { FigmaIcon } from '../design/assets';
 
 /**
  * Loyalty and referral surfaces.
@@ -24,58 +25,64 @@ export function PointsCard({
 }): React.JSX.Element {
   const theme = useTheme();
   const hasNext = summary.nextReward !== null;
+  const goal = summary.nextReward?.pointsRequired ?? 0;
+  const muted = theme.colors.onBrandMuted;
 
   return (
-    <Card elevation="md" style={{ backgroundColor: theme.colors.surfaceInverse }}>
-      <View style={{ gap: theme.spacing.base }}>
-        <View style={styles.spread}>
-          <Text variant="overline" style={{ color: theme.colors.textInverse, opacity: 0.7 }}>
-            YOUR GRAB POINTS
-          </Text>
-          <Ionicons name="sparkles" size={16} color={theme.palette.ember[400]} />
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-          <Text variant="display" style={{ color: theme.colors.textInverse }}>
+    <View style={{ backgroundColor: theme.colors.brand, borderRadius: 24, padding: 20, gap: 16 }}>
+      <View style={{ gap: 6 }}>
+        <Text style={{ color: muted, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 }} maxScale={1.4}>
+          YOUR GRAB POINTS
+        </Text>
+        <View style={styles.spreadEnd}>
+          <Text
+            variant="display"
+            style={{ color: theme.colors.onBrand, fontSize: 32, lineHeight: 36, fontWeight: '700' }}
+          >
             {formatPoints(summary.balance)}
+            {hasNext ? ` / ${formatPoints(goal)}` : ''}
           </Text>
           {hasNext ? (
-            <Text variant="title3" style={{ color: theme.colors.textInverse, opacity: 0.5 }}>
-              / {formatPoints(summary.nextReward?.pointsRequired ?? 0)}
+            <Text
+              style={{ color: muted, fontSize: 13, fontWeight: '700', flexShrink: 1, textAlign: 'right' }}
+              maxScale={1.4}
+            >
+              {summary.pointsToNextReward} pts until {summary.nextReward?.name}
             </Text>
           ) : null}
         </View>
-
-        {hasNext ? (
-          <>
-            <ProgressBar
-              progress={summary.progressToNextReward}
-              label={`${summary.pointsToNextReward ?? 0} points to your next reward`}
-            />
-            <Text variant="footnote" style={{ color: theme.colors.textInverse, opacity: 0.8 }}>
-              {summary.pointsToNextReward} points until {summary.nextReward?.name}
-            </Text>
-          </>
-        ) : (
-          <Text variant="footnote" style={{ color: theme.colors.textInverse, opacity: 0.8 }}>
-            Every reward unlocked. Keep ordering to earn more.
-          </Text>
-        )}
-
-        {onViewRewards ? (
-          <Button
-            label="View rewards"
-            variant="primary"
-            size="sm"
-            icon="gift-outline"
-            onPress={onViewRewards}
-          />
-        ) : null}
       </View>
-    </Card>
+
+      {hasNext ? (
+        <View style={{ gap: 8 }}>
+          <View style={styles.spread}>
+            <Text style={{ color: muted, fontSize: 13 }}>0 pts</Text>
+            <Text style={{ color: muted, fontSize: 13 }}>{formatPoints(goal)} pts</Text>
+          </View>
+          <ProgressBar
+            progress={summary.progressToNextReward}
+            label={`${summary.pointsToNextReward ?? 0} points to your next reward`}
+            trackColor={theme.isDark ? theme.colors.surfaceMuted : '#F0ECE7'}
+            fillColor={theme.isDark ? theme.colors.primary : '#FFFFFF'}
+          />
+        </View>
+      ) : (
+        <Text variant="footnote" style={{ color: muted }}>
+          Every reward unlocked. Keep ordering to earn more.
+        </Text>
+      )}
+
+      {onViewRewards ? (
+        <Button label="View rewards" variant="secondary" size="sm" icon="gift-outline" onPress={onViewRewards} />
+      ) : null}
+    </View>
   );
 }
 
+/**
+ * A reward on the ladder: the redesign's maroon card with the tag tile, the
+ * points it costs, and either the unlock progress or Redeem.
+ */
 export function RewardCard({
   reward,
   balance,
@@ -89,68 +96,63 @@ export function RewardCard({
 }): React.JSX.Element {
   const theme = useTheme();
   const shortfall = Math.max(0, reward.pointsRequired - balance);
+  const ink = '#FFFFFF';
 
   return (
-    <Card>
-      <View style={{ gap: theme.spacing.md }}>
-        <View style={{ flexDirection: 'row', gap: theme.spacing.md, alignItems: 'flex-start' }}>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: theme.radii.md,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: reward.isUnlocked
-                ? theme.colors.primaryMuted
-                : theme.colors.surfaceMuted,
-            }}
-          >
-            <Ionicons
-              name={reward.type === 'FREE_ITEM' ? 'cafe' : 'pricetag'}
-              size={20}
-              color={reward.isUnlocked ? theme.colors.primary : theme.colors.textMuted}
-            />
-          </View>
+    <View style={{ backgroundColor: theme.colors.accent, borderRadius: 16, padding: 16, gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <FigmaIcon name="rewardIcon" size={42} />
 
-          <View style={{ flex: 1, gap: 3 }}>
-            <Text variant="bodyStrong">{reward.name}</Text>
-            {reward.description ? (
-              <Text variant="footnote" color="textMuted">
-                {reward.description}
-              </Text>
-            ) : null}
-            {reward.businessName ? (
-              <Text variant="caption" color="textMuted">
-                Only at {reward.businessName}
-              </Text>
-            ) : null}
-          </View>
-
-          <Badge
-            label={`${formatPoints(reward.pointsRequired)} pts`}
-            tone={reward.isUnlocked ? 'primary' : 'neutral'}
-          />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={{ color: ink, fontSize: 15, lineHeight: 20, fontWeight: '700' }}>{reward.name}</Text>
+          {reward.description ? (
+            <Text style={{ color: ink, fontSize: 13, lineHeight: 18 }}>{reward.description}</Text>
+          ) : null}
+          {reward.businessName ? (
+            <Text style={{ color: ink, fontSize: 12, opacity: 0.8 }}>Only at {reward.businessName}</Text>
+          ) : null}
         </View>
 
-        {reward.isUnlocked ? (
-          <Button
-            label="Redeem"
-            size="sm"
-            onPress={onRedeem}
-            loading={redeeming}
-            icon="gift-outline"
-          />
-        ) : (
-          <View style={{ gap: 6 }}>
-            <ProgressBar progress={balance / Math.max(1, reward.pointsRequired)} />
-            <Text variant="caption" color="textMuted">
-              {formatPoints(shortfall)} more points to unlock
+        <View style={{ alignSelf: 'flex-start' }}>
+          <View
+            style={{
+              backgroundColor: theme.colors.accentRaised,
+              borderRadius: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+            }}
+          >
+            <Text style={{ color: ink, fontSize: 12, lineHeight: 16 }} maxScale={1.4}>
+              {formatPoints(reward.pointsRequired)} pts
             </Text>
           </View>
-        )}
+        </View>
       </View>
-    </Card>
+
+      <View style={{ gap: 6 }}>
+        <ProgressBar
+          progress={reward.isUnlocked ? 1 : balance / Math.max(1, reward.pointsRequired)}
+          trackColor={theme.colors.accentRaised}
+          fillColor="#FFFFFF"
+          height={6}
+          label={reward.isUnlocked ? 'Reward unlocked' : `${formatPoints(shortfall)} more points to unlock`}
+        />
+        <Text style={{ color: ink, fontSize: 12, lineHeight: 16 }}>
+          {reward.isUnlocked ? 'Reward unlocked' : `${formatPoints(shortfall)} more points to unlock`}
+        </Text>
+      </View>
+
+      {reward.isUnlocked ? (
+        <Button
+          label="Redeem"
+          variant="secondary"
+          size="sm"
+          onPress={onRedeem}
+          loading={redeeming}
+          icon="gift-outline"
+        />
+      ) : null}
+    </View>
   );
 }
 
@@ -367,6 +369,12 @@ const styles = StyleSheet.create({
   spread: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  spreadEnd: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: 12,
   },

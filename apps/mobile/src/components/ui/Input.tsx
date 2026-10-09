@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { minTouchTarget, textStyle, useTheme } from '../../theme';
 import { Text } from './Text';
+import { FigmaIcon } from '../../design/assets';
+import { fontFor } from '../../theme/fonts';
 
 /**
  * Text input.
@@ -101,7 +103,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
           accessibilityHint={error ?? hint}
           style={[
             styles.input,
-            inputTextStyle,
+            inputTextStyle(),
             { color: theme.colors.textPrimary, paddingVertical: Platform.OS === 'ios' ? 14 : 10 },
           ]}
         />
@@ -196,12 +198,17 @@ export function SearchInput({
   placeholder = 'Search cafes, coffee, breakfast…',
   onSubmit,
   autoFocus,
+  fill,
+  inkColour,
 }: {
   value: string;
   onChange: (next: string) => void;
   placeholder?: string;
   onSubmit?: () => void;
   autoFocus?: boolean;
+  /** Overrides for a themed category look. */
+  fill?: string;
+  inkColour?: string;
 }): React.JSX.Element {
   const theme = useTheme();
 
@@ -210,20 +217,21 @@ export function SearchInput({
       style={[
         styles.field,
         {
-          minHeight: 46,
-          borderRadius: theme.radii.md,
-          backgroundColor: theme.colors.surfaceMuted,
+          minHeight: 48,
+          gap: 12,
+          borderRadius: 14,
+          backgroundColor: fill ?? theme.colors.field,
           borderWidth: 0,
-          paddingHorizontal: theme.spacing.md,
+          paddingHorizontal: 14,
         },
       ]}
     >
-      <Ionicons name="search" size={18} color={theme.colors.textMuted} />
+      <FigmaIcon name="search" size={18} tint={inkColour ?? theme.colors.fieldText} />
       <TextInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.textMuted}
+        placeholderTextColor={inkColour ?? theme.colors.fieldText}
         selectionColor={theme.colors.primary}
         returnKeyType="search"
         onSubmitEditing={onSubmit}
@@ -232,7 +240,7 @@ export function SearchInput({
         clearButtonMode="while-editing"
         accessibilityLabel="Search"
         underlineColorAndroid="transparent"
-        style={[styles.input, inputTextStyle, { color: theme.colors.textPrimary, paddingVertical: 12 }]}
+        style={[styles.input, inputTextStyle(), { color: theme.colors.textPrimary, paddingVertical: 12 }]}
       />
       {/* iOS provides its own clear button; Android needs one drawn. */}
       {Platform.OS === 'android' && value.length > 0 ? (
@@ -248,7 +256,12 @@ export function SearchInput({
  * Body type for TextInput, minus the line height: on iOS a fixed lineHeight
  * pushes input text off its baseline once Dynamic Type enlarges the font.
  */
-const { lineHeight: _lineHeight, ...inputTextStyle } = textStyle('body');
+const { lineHeight: _lineHeight, ...bodyStyle } = textStyle('body');
+/** Fonts load at startup, before any input renders, so this resolves once. */
+const inputTextStyle = (): typeof bodyStyle => {
+  const family = fontFor('400', false);
+  return family ? { ...bodyStyle, fontFamily: family, fontWeight: undefined } : bodyStyle;
+};
 
 const styles = StyleSheet.create({
   field: {

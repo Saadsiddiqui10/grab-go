@@ -1,13 +1,17 @@
-import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { useState } from 'react';
+import { Pressable, View, StyleSheet, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { Image, type ImageStyle } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import type { BusinessSummary } from '@grabgo/types';
+import type { CategoryColorSet } from '@grabgo/config';
+import type { BreakfastSkin } from '../design/breakfast';
+import { hasPour, POUR_GLAZE_DEPTH, POUR_HEADROOM, PourTopper } from '../design/PourTopper';
 import { useTheme } from '../theme';
 import { formatDistance, formatPrepTime } from '../lib/format';
 import { Text } from './ui/Text';
 import { Badge, Card } from './ui/Surface';
-import { IconButton } from './ui/Button';
-import { AppIcon } from './ui/AppIcon';
+import { FigmaIcon } from '../design/assets';
+import { tapFeedback } from '../lib/feedback';
 
 /**
  * A cafe, as it appears in a list.
@@ -25,31 +29,37 @@ import { AppIcon } from './ui/AppIcon';
 export function CafeImage({
   uri,
   style,
-  iconSize = 28,
+  iconSize = 24,
+  background,
+  cupTint,
 }: {
   uri: string | null | undefined;
   style: StyleProp<ImageStyle>;
   iconSize?: number;
+  /** Fill behind the placeholder cup. Defaults to the muted surface. */
+  background?: string;
+  /** Recolour the placeholder cup (a themed category look). */
+  cupTint?: string;
 }): React.JSX.Element {
   const theme = useTheme();
-  const background = { backgroundColor: theme.colors.surfaceMuted };
+  const fill = { backgroundColor: background ?? theme.colors.surfaceMuted };
 
   if (!uri) {
     return (
-      <View style={[style as StyleProp<ViewStyle>, background, styles.placeholder]}>
-        <AppIcon name="coffee" size={iconSize} color={theme.colors.textMuted} />
+      <View style={[style as StyleProp<ViewStyle>, fill, styles.placeholder]}>
+        <FigmaIcon
+          name="cafePreview"
+          size={iconSize}
+          // The cup is espresso brown; on a dark page it takes the heading
+          // colour so it stays visible.
+          tint={cupTint ?? (theme.isDark ? theme.colors.heading : undefined)}
+        />
       </View>
     );
   }
 
   return (
-    <Image
-      source={{ uri }}
-      contentFit="cover"
-      transition={200}
-      style={[style, background]}
-      accessible={false}
-    />
+    <Image source={{ uri }} contentFit="cover" transition={200} style={[style, fill]} accessible={false} />
   );
 }
 
@@ -59,87 +69,130 @@ export interface CafeCardProps {
   onToggleFavourite?: () => void;
   isFavourite?: boolean;
   layout?: 'wide' | 'rail';
+  /**
+   * A selected category's colours. The card then switches from the espresso
+   * card to a light one in that category's ink, matching the themed home.
+   */
+  tint?: CategoryColorSet | null;
+  /** A full category look (Breakfast) that overrides `tint`. */
+  skin?: BreakfastSkin | null;
+  /** A category slug: that drink pours onto the top of the card. */
+  pour?: string | null;
 }
 
+/**
+ * The cafe card from the redesign: a photo (or a cup on the page colour), a
+ * maroon save button, and an espresso details panel with the name, rating,
+ * area and pickup time.
+ */
 export function CafeCard({
   cafe,
   onPress,
   onToggleFavourite,
   isFavourite,
   layout = 'wide',
+  tint = null,
+  skin = null,
+  pour = null,
 }: CafeCardProps): React.JSX.Element {
   const theme = useTheme();
+  // Start from the expected width (rail cards are fixed; wide cards span the
+  // screen less its margins) so the pour draws in the first frame.
+  const window = useWindowDimensions();
+  const [width, setWidth] = useState(layout === 'rail' ? 264 : Math.round(window.width - 32));
   const isRail = layout === 'rail';
 
   const closed = !cafe.isOpenNow;
   const paused = cafe.isOpenNow && !cafe.acceptingOrders;
 
-  return (
+  // Default: espresso card. Tinted: light card in the category's ink.
+  const panel = skin?.card ?? (tint ? theme.colors.surface : theme.colors.brand);
+  const title = skin?.text ?? (tint ? tint.ink : theme.colors.onBrand);
+  const detail = skin?.muted ?? (tint ? theme.colors.textSecondary : theme.colors.onBrandMuted);
+
+  const card = (
     <Card
       onPress={onPress}
       padded={false}
-      style={isRail ? { width: 260 } : undefined}
+      elevation={tint || skin ? 'sm' : 'none'}
+      style={isRail ? { width: 264 } : undefined}
+      surfaceStyle={{ backgroundColor: panel, borderRadius: skin ? 20 : 18, borderWidth: 0 }}
       accessibilityLabel={`${cafe.name}${cafe.areaName ? `, ${cafe.areaName}` : ''}. ${
         closed ? 'Closed' : `Open, ready in about ${cafe.prepTimeMinutes} minutes`
       }${cafe.rating ? `, rated ${cafe.rating} out of 5` : ''}`}
     >
       <View>
-        <CafeImage uri={cafe.coverImageUrl} style={[styles.cover, { height: isRail ? 140 : 160 }]} />
+        <CafeImage
+          uri={cafe.coverImageUrl}
+          style={[styles.cover, { height: isRail ? 116 : 140 }]}
+          background={skin?.media ?? (tint ? tint.soft : theme.colors.background)}
+          cupTint={skin?.cup ?? tint?.ink}
+        />
 
         {/* A closed cafe stays browsable, but the card says so plainly. */}
         {closed || paused ? (
           <View style={[styles.scrim, { backgroundColor: theme.colors.overlay }]}>
-            <Badge
-              label={closed ? 'Closed' : 'Not taking orders'}
-              tone="neutral"
-            />
+            <Badge label={closed ? 'Closed' : 'Not taking orders'} tone="neutral" />
           </View>
         ) : null}
 
         {onToggleFavourite ? (
-          <View style={styles.favourite}>
-            <IconButton
-              icon={isFavourite ? 'heart' : 'heart-outline'}
-              label={isFavourite ? `Remove ${cafe.name} from favourites` : `Save ${cafe.name} to favourites`}
-              onPress={onToggleFavourite}
-              tone={isFavourite ? 'danger' : 'textOnPrimary'}
-              size={20}
-              background="rgba(0,0,0,0.35)"
-            />
-          </View>
+          <Pressable
+            onPress={() => {
+              tapFeedback();
+              onToggleFavourite();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isFavourite ? `Remove ${cafe.name} from favourites` : `Save ${cafe.name} to favourites`
+            }
+            accessibilityState={{ selected: Boolean(isFavourite) }}
+            hitSlop={4}
+            style={({ pressed }) => [
+              styles.favourite,
+              // Drop below the poured glaze so the drink never covers it.
+              hasPour(pour) ? { top: POUR_GLAZE_DEPTH + 6 } : null,
+              {
+                // The save button takes the selected category's colour, so a
+                // matcha page is not dotted with maroon.
+                backgroundColor: skin?.saveButton ?? tint?.solid ?? theme.colors.accent,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            {isFavourite ? (
+              <Ionicons name="heart" size={20} color={skin?.saveIcon ?? tint?.onSolid ?? '#FFFFFF'} />
+            ) : (
+              <FigmaIcon name="heart" size={20} tint={skin?.saveIcon ?? tint?.onSolid ?? '#FFFFFF'} />
+            )}
+          </Pressable>
         ) : null}
       </View>
 
-      <View style={{ padding: theme.spacing.md, gap: 6 }}>
+      <View style={{ padding: 12, gap: 7 }}>
         <View style={styles.titleRow}>
-          <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1 }}>
+          <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1, color: title }}>
             {cafe.name}
           </Text>
           {cafe.rating !== null ? (
             <View style={styles.rating}>
-              <Ionicons name="star" size={13} color={theme.colors.warning} />
-              <Text variant="caption" color="textSecondary">
+              <Text style={{ color: skin?.accent ?? '#EDA315', fontSize: 15, lineHeight: 18 }} maxScale={1.3}>
+                ★
+              </Text>
+              <Text variant="caption" style={{ color: title, fontWeight: '400' }}>
                 {cafe.rating.toFixed(1)}
               </Text>
             </View>
           ) : null}
         </View>
 
-        <View style={styles.metaRow}>
-          {cafe.areaName ? (
-            <Text variant="footnote" color="textMuted" numberOfLines={1}>
-              {cafe.areaName}
-            </Text>
-          ) : null}
-          {cafe.distanceMeters !== null ? (
-            <>
-              <Dot />
-              <Text variant="footnote" color="textMuted">
-                {formatDistance(cafe.distanceMeters)}
-              </Text>
-            </>
-          ) : null}
-        </View>
+        {cafe.areaName || cafe.distanceMeters !== null ? (
+          <Text variant="footnote" numberOfLines={1} style={{ color: detail }}>
+            {[cafe.areaName, cafe.distanceMeters !== null ? formatDistance(cafe.distanceMeters) : null]
+              .filter(Boolean)
+              .join(' · ')}
+          </Text>
+        ) : null}
 
         <View style={styles.metaRow}>
           {cafe.isOpenNow ? (
@@ -158,26 +211,24 @@ export function CafeCard({
         </View>
 
         {cafe.popularItems.length > 0 && !isRail ? (
-          <Text variant="caption" color="textMuted" numberOfLines={1}>
+          <Text style={{ color: detail, fontSize: 11, lineHeight: 14 }} numberOfLines={1}>
             Popular: {cafe.popularItems.join(' · ')}
           </Text>
         ) : null}
       </View>
     </Card>
   );
-}
 
-function Dot(): React.JSX.Element {
-  const theme = useTheme();
+  if (!hasPour(pour)) return card;
+
   return (
     <View
-      style={{
-        width: 3,
-        height: 3,
-        borderRadius: 2,
-        backgroundColor: theme.colors.textMuted,
-      }}
-    />
+      style={[{ paddingTop: POUR_HEADROOM }, isRail ? { width: 264 } : null]}
+      onLayout={(event) => setWidth(Math.round(event.nativeEvent.layout.width))}
+    >
+      {card}
+      <PourTopper slug={pour} width={width} seed={cafe.id} />
+    </View>
   );
 }
 
@@ -240,6 +291,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     right: 6,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',

@@ -38,6 +38,14 @@ export interface GrabGoMapProps {
    * whenever the value changes; `center` and `zoom` only set the first frame.
    */
   fitBounds?: LngLatBounds | null;
+  /** Where the OpenStreetMap credit sits; move it clear of overlays. */
+  attributionPosition?:
+    | { top: number; left: number }
+    | { top: number; right: number }
+    | { bottom: number; right: number }
+    | { bottom: number; left: number };
+  /** Space to keep clear when fitting, e.g. under floating panels. */
+  fitPadding?: { top: number; right: number; bottom: number; left: number };
   /** Map content — annotations, sources, layers. */
   children?: ReactNode;
 }
@@ -62,6 +70,8 @@ export function GrabGoMap({
   style,
   onMapReady,
   fitBounds,
+  fitPadding,
+  attributionPosition = { bottom: 8, right: 8 },
   children,
 }: GrabGoMapProps): React.JSX.Element {
   const unavailable = mapUnavailableReason();
@@ -89,10 +99,17 @@ export function GrabGoMap({
     if (!fitBounds || !loaded || !size || size.width === 0 || size.height === 0) return;
     // Room for the pins and their labels, but never more than a fifth of the
     // map on any side, so a short map still has space to fit into.
-    const vertical = Math.min(72, size.height * 0.2);
-    const horizontal = Math.min(48, size.width * 0.2);
+    const wanted = fitPadding ?? { top: 72, right: 48, bottom: 72, left: 48 };
+    // Never let the padding eat the whole map: cap each pair at 80% of it.
+    const scaleV = Math.min(1, (size.height * 0.8) / Math.max(1, wanted.top + wanted.bottom));
+    const scaleH = Math.min(1, (size.width * 0.8) / Math.max(1, wanted.left + wanted.right));
     cameraRef.current?.fitBounds(fitBounds, {
-      padding: { top: vertical, right: horizontal, bottom: vertical, left: horizontal },
+      padding: {
+        top: wanted.top * scaleV,
+        bottom: wanted.bottom * scaleV,
+        left: wanted.left * scaleH,
+        right: wanted.right * scaleH,
+      },
       duration: 600,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,7 +147,7 @@ export function GrabGoMap({
         scaleBar={false}
         compass={false}
         attribution
-        attributionPosition={{ bottom: 8, right: 8 }}
+        attributionPosition={attributionPosition}
         // Pan and zoom on; rotate and pitch off, as before.
         dragPan={interactive}
         touchZoom={interactive}
