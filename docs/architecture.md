@@ -249,10 +249,30 @@ so running it twice or on two instances is harmless.
 - **Expire stale points** — writes an `EXPIRY` ledger row rather than editing the
   original earn, so history still shows what was earned and when it lapsed.
 - **Prune dead sessions** — keeps the table from growing without bound.
+- **Retry POS deliveries** that failed straight after their order changed (see
+  below).
 
 At launch scale these are seconds of work. A queue would be infrastructure to
 operate for no benefit; the swap point is when a task stops finishing inside its
 interval.
+
+### POS sync: a transactional outbox
+
+A café can connect its point-of-sale system (see
+[`pos-integration.md`](pos-integration.md)). Every order event for such a café
+writes a `PosSyncJob` row **in the same transaction** as the order change, so
+an order can never change without its POS delivery being queued. Delivery runs
+outside the transaction: once straight after the commit, then from the sweep
+with backoff (30 s to 6 h, seven attempts). A worker claims a job with a
+conditional update before sending it, so two API instances never send the same
+job at once. Adapters (`services/pos/`) only know how to hand one event to one
+system; queueing, retries and bookkeeping live in the outbox, so a vendor
+integration is one file.
+
+The café's signing secret is encrypted at rest (AES-256-GCM under
+`POS_SECRET_KEY`, bound to the café id). The URL a café enters is fetched by
+the server, so it is held to https on 443 with public addresses only, checked
+again at connect time against DNS rebinding.
 
 ---
 

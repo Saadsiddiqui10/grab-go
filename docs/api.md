@@ -71,6 +71,10 @@ personalised ordering).
 Location is optional throughout. Without coordinates, `NEAREST` falls back to
 `RECOMMENDED` and `distanceMeters` comes back `null`.
 
+Only live (`ACTIVE`) cafés are public. A café that is pending approval,
+suspended or rejected answers 404 on its detail and menu, except to admins and
+its own staff, who can preview it.
+
 ---
 
 ## Cart and orders
@@ -100,6 +104,7 @@ Location is optional throughout. Without coordinates, `NEAREST` falls back to
     }
   ],
   "pickup": { "mode": "ASAP" },              // or SCHEDULED + pickupAt
+  "collection": { "method": "WALK_IN" },     // or CURBSIDE + vehiclePlate (+ vehicleDetails)
   "promoCode": "WELCOME50",
   "redemptionId": null,
   "paymentMethod": "CARD",
@@ -109,6 +114,11 @@ Location is optional throughout. Without coordinates, `NEAREST` falls back to
 
 Note what is **not** in the body: no prices, no totals, no points, no payment
 status. The server derives all of them.
+
+`collection` defaults to walking in. For `CURBSIDE` the number plate is
+required (2–16 letters, digits, spaces or dashes; stored upper-cased) and is
+shown on the café's ticket so staff can find the car. A `redemptionId` must
+belong to a reward of the same café.
 
 `idempotencyKey` is required. A retry with the same key returns the original
 order instead of creating a second one — a flaky connection must not turn one
@@ -158,6 +168,12 @@ the order total is treated as a failure.
 events — an order collected, a referral qualifying, an admin adjustment. No
 client-facing shape can express "give me 500 points".
 
+**Points are per café.** `GET /users/me/points` returns totals plus `cafes[]`,
+one card per café with its balance and next reward. Every reward belongs to a
+café; `GET /rewards?businessId=` narrows the list, and redeeming spends the
+points on that café's card only. A redemption code discounts orders at that
+café only.
+
 ---
 
 ## Merchant
@@ -191,6 +207,15 @@ id.
 | POST / DELETE | `/merchant/:businessId/holidays[/:id]` | M |
 | GET / POST / PATCH | `/merchant/:businessId/staff[/:id]` | M — manager or owner |
 | GET | `/merchant/:businessId/analytics` | M |
+| GET / POST / PATCH | `/merchant/:businessId/rewards[/:id]` | M — the café's own rewards; never deleted, retire with `isActive: false` |
+| GET | `/merchant/:businessId/pos` | M — connection status, pending and failed deliveries (never the secret) |
+| PUT | `/merchant/:businessId/pos` | M — manager or owner. Returns the signing secret once, when created |
+| POST | `/merchant/:businessId/pos/rotate-secret` | M — manager or owner |
+| POST | `/merchant/:businessId/pos/test` | M — manager or owner. Sends a signed `ping` |
+| POST | `/merchant/:businessId/pos/retry` | M — any staff. `{ jobId? }`, all when omitted |
+
+Free-item rewards may only name items on the café's own menu. POS receivers
+are documented in [`pos-integration.md`](pos-integration.md).
 
 `reject` requires a reason (`ITEM_UNAVAILABLE`, `TOO_BUSY`, `CLOSING_SOON`,
 `TECHNICAL_ISSUE`, `OTHER`) — the state machine refuses the transition without
@@ -198,6 +223,10 @@ one, because the customer is owed an explanation.
 
 `pickup` and `pickup-scan` both verify server-side: constant-time comparison,
 attempt-limited, single use, and only from `READY`.
+
+Admins pass `requireStaffOf` for every café, so the admin dashboard edits a
+café's profile and menu through these same routes (and the audit log records
+the admin as the actor).
 
 ---
 
@@ -209,7 +238,7 @@ attempt-limited, single use, and only from `READY`.
 | GET | `/admin/users/:userId` | A |
 | POST | `/admin/users/:userId/suspend` | A |
 | POST | `/admin/users/:userId/restore` | A |
-| POST | `/admin/points/adjust` | A |
+| POST | `/admin/points/adjust` | A — `businessId` required: points live on a café card |
 | GET / POST | `/admin/businesses` | A |
 | POST | `/admin/businesses/:id/approve` | A |
 | POST | `/admin/businesses/:id/reject` | A |
@@ -222,7 +251,7 @@ attempt-limited, single use, and only from `READY`.
 | PUT | `/admin/config/loyalty` | A |
 | PUT | `/admin/config/referral` | A |
 | PUT | `/admin/config/platform` | A |
-| GET / POST / PATCH | `/admin/rewards[/:id]` | A |
+| GET / POST / PATCH | `/admin/rewards[/:id]` | A — every reward names a café, and cannot move to another |
 | GET / POST / PATCH | `/admin/promotions[/:id]` | A |
 | POST | `/admin/cities` | A |
 | POST | `/admin/areas` | A |

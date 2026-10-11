@@ -9,6 +9,25 @@ the counter, and walk out. No delivery, no queue.
 This repository contains the whole product: the customer app, the café dashboard,
 the admin dashboard, the API, and the shared domain logic all four depend on.
 
+### What a customer can do
+
+- Browse every café in the city on Home (by craving: coffee, chai, matcha…) or
+  on a map with grouped pins, a preview card and a list view; cafés not on
+  Grab & Go yet appear as grey dots they can request.
+- Order ahead, choosing to **walk in** or have it **brought to the car**
+  (number plate shown to the café), pay by card or at the counter, follow the
+  order live and collect with a pickup code or QR.
+- Earn points **per café** and spend them on that café's own rewards.
+- Invite friends, favourite cafés, manage the account (password reset and
+  change, account deletion), in light or dark mode.
+
+### What a café can do
+
+Run a live order board built for the iPad by the till, edit the menu and mark
+items sold out, set its own rewards, profile and logo (which shows on its map
+pin), hours, holidays and staff, pause orders, and send every order to its
+point-of-sale system over a signed webhook with retries.
+
 ---
 
 ## What is here
@@ -17,8 +36,8 @@ the admin dashboard, the API, and the shared domain logic all four depend on.
 apps/
   api/                  Fastify + Prisma + PostgreSQL + Socket.IO
   mobile/               Expo / React Native customer app (iOS + Android)
-  merchant-dashboard/   Café live-order board, menu, hours, staff, analytics
-  admin-dashboard/      Users, cafés, orders, loyalty rules, promotions
+  merchant-dashboard/   Café live-order board, menu, rewards, POS, hours, staff, analytics
+  admin-dashboard/      Users, cafés (profile and menu), orders, loyalty, promotions
 packages/
   core/                 Pure domain logic — pricing, state machine, loyalty, referrals
   types/                Shared domain vocabulary and API contracts
@@ -112,15 +131,18 @@ provider declines it.
 ## Testing
 
 ```bash
-npm test        # 200+ tests across core, validation and the API
-npm run verify  # typecheck everything, then test
+npm test          # 320+ unit tests across core, validation and the API
+npm run lint      # ESLint (typescript-eslint + React hooks rules)
+npm run verify    # lint, typecheck everything, then the unit tests
+npm run test:e2e  # 39 end-to-end journeys against a real database (needs Postgres)
 ```
 
 | Suite                 | What it covers                                                                   |
 | --------------------- | -------------------------------------------------------------------------------- |
-| `packages/core`       | Pricing, order state machine, points, referrals, promotions, pickup codes, hours   |
-| `packages/validation` | Phone normalisation, cart and menu rules, promo constraints                        |
-| `apps/api`            | Env guards, JWT and pickup tokens, error mapping, auth on every protected route    |
+| `packages/core`       | Pricing, order state machine, points, referrals, promotions, pickup codes, hours, map pin clustering |
+| `packages/validation` | Phone, URL and number-plate rules, cart and menu rules, café rewards, promo constraints |
+| `apps/api`            | Env guards, JWT and pickup tokens, error mapping, auth on every protected route, payments, POS signing, secrets and endpoint safety |
+| `apps/api/e2e`        | Accounts, ordering, per-café loyalty, POS delivery and retries, café onboarding and admin. See [`apps/api/e2e/README.md`](apps/api/e2e/README.md) |
 
 The domain tests are the ones that matter most. They cover the things that cost
 real money if they are wrong: that a discount can never exceed the basket, that
@@ -167,6 +189,11 @@ is no field a client could use to assert success. Providers sit behind a
 five-method interface, so swapping the gateway is one new file.
 
 ### Loyalty
+
+Each café is its own loyalty card: points earned on an order land on that
+café's card and are spent only on that café's rewards, which the café defines
+itself (amount off, percentage off, or a free item from its menu). A reward
+redemption only discounts orders at the café that issued it.
 
 Points are an append-only ledger. The balance on `PointsAccount` is a cached sum
 maintained in the same transaction as the row that moved it, and a spend is a
@@ -249,8 +276,10 @@ specifically to prove nothing is hardcoded — launching it is a flag.
 | `npm run db:reset` | Drop, re-migrate and re-seed |
 | `npm run db:studio` | Prisma Studio |
 | `npm run build` | Build packages, API and both dashboards |
-| `npm test` | Run every test suite |
-| `npm run verify` | Typecheck everything, then test |
+| `npm test` | Run every unit test suite |
+| `npm run lint` | ESLint across the monorepo |
+| `npm run verify` | Lint, typecheck everything, then the unit tests |
+| `npm run test:e2e` | End-to-end journeys against the `grabgo_e2e` database |
 
 ---
 
@@ -258,6 +287,9 @@ specifically to prove nothing is hardcoded — launching it is a flag.
 
 - [`docs/architecture.md`](docs/architecture.md) — request lifecycle, data flow, deployment
 - [`docs/api.md`](docs/api.md) — every endpoint, with the auth each requires
+- [`docs/pos-integration.md`](docs/pos-integration.md) — for a café's POS developer: events, payload, signatures, retries
+- [`docs/production-checklist.md`](docs/production-checklist.md) — what must be true before launch
+- [`docs/launch-readiness.md`](docs/launch-readiness.md) — the finalisation report: what was built and verified, and what is left
 - [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) — the data model, commented
 
 ### Cafes not on Grab & Go yet
@@ -277,18 +309,25 @@ the app.
 
 ## Known gaps
 
-Honest about what is not finished, so nobody discovers it in production:
+Honest about what is not finished, so nobody discovers it in production. The
+full list, with what to do about each, is in
+[`docs/production-checklist.md`](docs/production-checklist.md).
 
 - **Payments** ship with a mock provider. The `PaymentProvider` interface and the
   whole verification flow are real; a Safepay implementation is one file, and the
   API refuses to start in production while `PAYMENT_PROVIDER=mock`.
 - **Transactional email** is not wired to a sender. Password reset issues and
-  validates real tokens, but delivery is a `TODO(email)` in `auth.service.ts`;
-  in development the token is returned in the response.
-- **Variant and modifier editing** in the merchant dashboard is read-only. The
-  data model, the API and the seed all support them fully; only that one editor
-  is outstanding.
+  validates real tokens, and the app has the full reset screens, but delivery is
+  a `TODO(email)` in `auth.service.ts`; in development the code is returned in
+  the response.
+- **Variant and modifier editing** in the menu editor is read-only. The data
+  model, the API and the seed all support them fully; only that editor is
+  outstanding.
 - **Image upload** expects URLs. There is no storage integration yet — the
   `STORAGE_*` variables are reserved for it.
 - **Merchant payouts** are not implemented. Every order stores its commission,
   merchant earnings and processing fee, so the ledger to build them from exists.
+- **POS** has a generic signed webhook; vendor-specific adapters are added as
+  real integrations arrive.
+- **No CI, Dockerfile or error monitoring** yet, and the app has not been run
+  as a release build or on Android hardware.
