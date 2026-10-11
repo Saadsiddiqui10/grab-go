@@ -25,7 +25,9 @@ export default function TabsLayout(): React.JSX.Element {
       tintColor={theme.isDark ? theme.colors.onAccentSoft : theme.colors.accent}
       badgeBackgroundColor={theme.colors.accent}
     >
-      <NativeTabs.Trigger name="index">
+      {/* Home lays out its own safe-area insets; the automatic ones the tab
+          bar adds would double the gap above the greeting. */}
+      <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} />
       </NativeTabs.Trigger>
