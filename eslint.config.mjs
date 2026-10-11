@@ -70,6 +70,13 @@ export default tseslint.config(
     },
   },
 
+  // End-to-end tests assert on raw wire JSON; typing every response would
+  // only duplicate the API's types, so untyped payloads are allowed there.
+  {
+    files: ['apps/api/e2e/**'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
+
   // Seed and import scripts report progress on the console.
   {
     files: ['apps/api/prisma/**', 'apps/api/scripts/**'],

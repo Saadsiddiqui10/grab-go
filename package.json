@@ -32,6 +32,7 @@
     "setup": "npm install && npm run build:packages && npm run db:generate",
     "test": "npm run test -w @grabgo/core && npm run test -w @grabgo/validation && npm run test -w @grabgo/api",
     "test:core": "npm run test -w @grabgo/core",
+    "test:e2e": "npm run test:e2e -w @grabgo/api",
     "typecheck": "npm run build:packages && npm run typecheck -w @grabgo/api && npm run typecheck -w @grabgo/merchant-dashboard && npm run typecheck -w @grabgo/admin-dashboard && npm run typecheck -w @grabgo/mobile",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

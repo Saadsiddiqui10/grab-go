@@ -116,6 +116,16 @@ export const slugSchema = z
   .max(80)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Use lowercase letters, numbers and dashes');
 
-export const urlSchema = z.string().trim().url('Enter a valid URL').max(2048);
+/**
+ * A web link (logos, covers, menu photos). `z.string().url()` alone accepts
+ * any scheme, including `javascript:` and `data:`, which become script or
+ * spoofed content wherever the value lands in a page; only http(s) is allowed.
+ */
+export const urlSchema = z
+  .string()
+  .trim()
+  .url('Enter a valid URL')
+  .max(2048)
+  .refine((value) => /^https?:\/\//i.test(value), { message: 'Use a link starting with https://' });
 
 export const ratingSchema = z.number().int().min(1).max(5);

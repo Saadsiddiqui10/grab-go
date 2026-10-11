@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { phoneSchema, passwordSchema, emailSchema } from './common';
+import { phoneSchema, passwordSchema, emailSchema, urlSchema } from './common';
 import { createOrderSchema, cartLineSchema, pickupMethodSchema, vehiclePlateSchema } from './orders';
 import { menuModifierSchema, openingHourSchema } from './catalog';
 import { merchantRewardSchema, promotionSchema, rewardSchema } from './loyalty';
 import { formatZodError } from './format';
+import { initiatePaymentSchema } from './payments';
 
 describe('phoneSchema', () => {
   it('normalises every way a Karachi number gets typed', () => {
@@ -271,5 +272,28 @@ describe('cafe rewards', () => {
         freeItemMenuItemIds: ['item_flat_white'],
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('urlSchema', () => {
+  it('accepts web links', () => {
+    expect(urlSchema.parse(' https://cdn.example.com/logo.png ')).toBe('https://cdn.example.com/logo.png');
+    expect(urlSchema.safeParse('http://example.com/a.jpg').success).toBe(true);
+  });
+
+  it('refuses script and data links', () => {
+    for (const value of ['javascript:alert(1)', 'JAVASCRIPT:alert(1)', 'data:text/html,<script>1</script>', 'file:///etc/passwd', 'ftp://example.com/x']) {
+      expect(urlSchema.safeParse(value).success, value).toBe(false);
+    }
+  });
+});
+
+describe('payment return URL', () => {
+  it('only returns to the app or an https page', () => {
+    const base = { orderId: 'cmorder00000001', method: 'CARD' as const };
+    expect(initiatePaymentSchema.safeParse({ ...base, returnUrl: 'grabgo://order-confirmed/order_1' }).success).toBe(true);
+    expect(initiatePaymentSchema.safeParse({ ...base, returnUrl: 'https://grabgo.pk/paid' }).success).toBe(true);
+    expect(initiatePaymentSchema.safeParse({ ...base, returnUrl: 'javascript:alert(1)' }).success).toBe(false);
+    expect(initiatePaymentSchema.safeParse({ ...base, returnUrl: 'http://evil.example' }).success).toBe(false);
   });
 });

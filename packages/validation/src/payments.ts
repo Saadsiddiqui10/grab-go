@@ -24,7 +24,17 @@ export const initiatePaymentSchema = z.object({
   method: paymentMethodSchema,
   /** Opaque token from the provider SDK (e.g. an Apple Pay payment token). */
   providerToken: z.string().max(8192).optional(),
-  returnUrl: z.string().url().max(2048).optional(),
+  /**
+   * Where a hosted checkout sends the customer afterwards: the app's own deep
+   * link or an https page. Anything else would make checkout an open redirect
+   * (or a `javascript:` link) under the provider's trusted domain.
+   */
+  returnUrl: z
+    .string()
+    .url()
+    .max(2048)
+    .refine((value) => /^(https:\/\/|grabgo:\/\/)/i.test(value), { message: 'Unsupported return URL' })
+    .optional(),
 });
 
 /**
