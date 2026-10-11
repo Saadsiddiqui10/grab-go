@@ -16,3 +16,8 @@ apps/api/prisma/.generated/
 .turbo/
 .vscode/
 *.tsbuildinfo
+
+# Playwright
+test-results/
+playwright-report/
+e2e-web/.cache/

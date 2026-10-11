@@ -20,6 +20,8 @@ export default tseslint.config(
       'apps/mobile/android/**',
       'apps/api/prisma/migrations/**',
       '**/*.d.ts',
+      'test-results/**',
+      'playwright-report/**',
     ],
   },
 
@@ -73,7 +75,7 @@ export default tseslint.config(
   // End-to-end tests assert on raw wire JSON; typing every response would
   // only duplicate the API's types, so untyped payloads are allowed there.
   {
-    files: ['apps/api/e2e/**'],
+    files: ['apps/api/e2e/**', 'e2e-web/**'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
 

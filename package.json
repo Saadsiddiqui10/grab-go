@@ -33,6 +33,7 @@
     "test": "npm run test -w @grabgo/core && npm run test -w @grabgo/validation && npm run test -w @grabgo/api",
     "test:core": "npm run test -w @grabgo/core",
     "test:e2e": "npm run test:e2e -w @grabgo/api",
+    "test:web": "playwright test -c e2e-web/playwright.config.ts",
     "typecheck": "npm run build:packages && npm run typecheck -w @grabgo/api && npm run typecheck -w @grabgo/merchant-dashboard && npm run typecheck -w @grabgo/admin-dashboard && npm run typecheck -w @grabgo/mobile",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.0",
     "@types/node": "^22.10.2",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^5.2.0",

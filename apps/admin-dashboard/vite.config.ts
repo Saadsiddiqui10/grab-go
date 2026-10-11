@@ -27,8 +27,14 @@ export default defineConfig({
     // The API runs on its own port in development; proxying keeps the browser
     // on one origin so cookies and CORS behave like production.
     proxy: {
-      '/api': { target: 'http://localhost:4000', changeOrigin: true },
-      '/realtime': { target: 'http://localhost:4000', ws: true, changeOrigin: true },
+      // GRABGO_API_ORIGIN lets the browser tests point a dashboard at their
+      // own API instance (and database) without touching the dev one.
+      '/api': { target: process.env.GRABGO_API_ORIGIN ?? 'http://localhost:4000', changeOrigin: true },
+      '/realtime': {
+        target: process.env.GRABGO_API_ORIGIN ?? 'http://localhost:4000',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
   build: { outDir: 'dist', sourcemap: true },

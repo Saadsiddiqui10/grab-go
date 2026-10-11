@@ -884,9 +884,13 @@ export async function listBusinessOrders(
         : {}),
     },
     ...orderWithRelations,
-    // Oldest first on the live board: the customer who has waited longest is the
-    // one the barista should serve next.
-    orderBy: [{ pickupAt: 'asc' }, { createdAt: 'asc' }],
+    // Live columns: oldest first, because the customer who has waited longest
+    // is the one the barista should serve next. Finished orders: newest first,
+    // so "Completed" shows today's handovers, not the café's first ever.
+    orderBy:
+      options.status === 'COMPLETED' || options.status === 'CANCELLED'
+        ? [{ updatedAt: 'desc' }]
+        : [{ pickupAt: 'asc' }, { createdAt: 'asc' }],
     take: options.limit + 1,
     ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
   });
