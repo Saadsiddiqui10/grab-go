@@ -1,6 +1,7 @@
-import { memo, useCallback, useDeferredValue, useEffect, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   FlatList,
   Platform,
   Pressable,
@@ -36,7 +37,7 @@ import { CafeCard } from '../../src/components/CafeCard';
 import { ActiveOrderBanner } from '../../src/components/OrderComponents';
 import { CafeCardSkeleton, EmptyState, ErrorState } from '../../src/components/ui/States';
 import { withTabTransition } from '../../src/components/ui/TabTransition';
-import { enterStyle, useBlendedColor, useEnterOnChange } from '../../src/lib/motion';
+import { useBlendedColor, useEnterOnChange, useReducedMotion } from '../../src/lib/motion';
 
 /**
  * Home.
@@ -97,6 +98,19 @@ function HomeScreen(): React.JSX.Element {
   const tint = shown && !skin ? coloursFor(shown) : null;
   const pageColour = useBlendedColor(skin?.page ?? tint?.wash ?? theme.colors.background);
   const categoryEnter = useEnterOnChange(shown);
+  const switching = shown !== category;
+  const railsOpacity = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    const animation = Animated.timing(railsOpacity, {
+      toValue: switching ? 0.45 : 1,
+      duration: reduceMotion ? 0 : switching ? 140 : 260,
+      easing: Easing.bezier(0.42, 0, 0.58, 1),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [switching, railsOpacity, reduceMotion]);
 
   return (
     // The page colour blends into the new category's wash rather than snapping.
@@ -260,16 +274,12 @@ function HomeScreen(): React.JSX.Element {
         {/* -------------------------------------------------------------- rails */}
         {/* The cafes fade and rise in after a category switch. Memoised on
             the deferred category alone, so a tap re-renders only the tabs. */}
-        {/* While the next category renders, the current cards dim, so the tap
-            visibly registered; only this wrapper re-renders on the tap. */}
-        <View style={{ opacity: shown === category ? 1 : 0.55 }}>
-          <CafeRails
-            shown={shown}
-            latitude={origin?.latitude}
-            longitude={origin?.longitude}
-            enter={categoryEnter}
-          />
-        </View>
+        {/* iOS-style content change: the current cards ease down while the
+            next category renders, then the new ones ease up in their place.
+            One opacity, on the native driver; no blink and no slide. */}
+        <Animated.View style={{ opacity: railsOpacity }}>
+          <CafeRails shown={shown} latitude={origin?.latitude} longitude={origin?.longitude} />
+        </Animated.View>
 
         <View
           style={{
@@ -291,12 +301,10 @@ const CafeRails = memo(function CafeRails({
   shown,
   latitude,
   longitude,
-  enter,
 }: {
   shown: string | null;
   latitude: number | undefined;
   longitude: number | undefined;
-  enter: Animated.Value;
 }): React.JSX.Element {
   const router = useRouter();
   const origin = latitude !== undefined && longitude !== undefined ? { latitude, longitude } : null;
@@ -334,7 +342,7 @@ const CafeRails = memo(function CafeRails({
   const subtone = skin?.muted;
 
   return (
-    <Animated.View style={enterStyle(enter)}>
+    <View>
       <Rail title="Fastest pickup" subtitle="Ready in minutes" query={fastest} renderCard={railProps} tone={tone} subtone={subtone} />
       <Rail
         title={origin ? 'Nearby' : 'Cafes in Karachi'}
@@ -348,7 +356,7 @@ const CafeRails = memo(function CafeRails({
         <Rail title="Your favourites" query={favouriteCafes} renderCard={railProps} tone={tone} subtone={subtone} />
       ) : null}
       <Rail title="Popular near you" query={popular} renderCard={railProps} tone={tone} subtone={subtone} />
-    </Animated.View>
+    </View>
   );
 });
 
