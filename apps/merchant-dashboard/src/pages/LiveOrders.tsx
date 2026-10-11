@@ -21,6 +21,7 @@ import {
 } from '@grabgo/ui';
 import { api, merchantApi, REALTIME_URL } from '../api';
 import { useDashboard } from '../store';
+import { usePosStatus } from './PosIntegration';
 
 /**
  * The live order board.
@@ -158,6 +159,8 @@ export function LiveOrdersPage(): React.JSX.Element {
           </>
         }
       />
+
+      {businessId ? <PosAlert businessId={businessId} onToast={setToast} /> : null}
 
       <QueryState
         isLoading={orders.isLoading}
@@ -611,4 +614,64 @@ async function chime(): Promise<void> {
   } catch {
     // Audio unavailable or blocked; the visual banner still fires.
   }
+}
+
+/**
+ * Shown only when orders have not reached the café's POS: it is the screen
+ * staff actually look at, so a broken till integration cannot go unnoticed.
+ */
+function PosAlert({
+  businessId,
+  onToast,
+}: {
+  businessId: string;
+  onToast: (message: string) => void;
+}): React.JSX.Element | null {
+  const client = useQueryClient();
+  const status = usePosStatus(businessId);
+  const retry = useMutation({
+    mutationFn: () => merchantApi.retryPos(businessId),
+    onSuccess: (result) => {
+      client.setQueryData(['pos-status', businessId], result.status);
+      const left = result.status.failedCount + result.status.recentProblems.length;
+      onToast(left === 0 ? 'Everything reached your POS' : 'Some orders still did not reach your POS');
+    },
+    onError: () => onToast('Could not retry'),
+  });
+
+  const data = status.data;
+  if (!data || data.provider === 'NONE' || !data.isEnabled) return null;
+  const stuck = new Set(data.recentProblems.map((job) => job.orderNumber));
+  if (stuck.size === 0) return null;
+
+  return (
+    <div
+      role="alert"
+      className="gg-spread"
+      style={{
+        flexWrap: 'wrap',
+        marginBottom: 'var(--space-base)',
+        padding: '10px 14px',
+        borderRadius: 'var(--radius-md)',
+        background: data.failedCount > 0 ? 'var(--color-danger-muted)' : 'var(--color-warning-muted)',
+      }}
+    >
+      <span className="gg-small" style={{ flex: '1 1 280px' }}>
+        <strong>
+          {stuck.size} {stuck.size === 1 ? 'order has' : 'orders have'} not reached your POS
+        </strong>{' '}
+        ({[...stuck].slice(0, 3).join(', ')}
+        {stuck.size > 3 ? '…' : ''}). {data.failedCount > 0 ? 'Retries have stopped.' : 'Retrying automatically.'}{' '}
+        They are all here on the board.
+      </span>
+      <div className="gg-row">
+        <Button size="sm" variant="secondary" onClick={() => retry.mutate()} loading={retry.isPending}>
+          Retry now
+        </Button>
+        <a className="gg-small" href="/settings#pos">
+          Details
+        </a>
+      </div>
+    </div>
+  );
 }

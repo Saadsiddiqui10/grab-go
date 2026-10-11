@@ -1,6 +1,7 @@
 export * from './capacity';
 export * from './errors';
 export * from './geo';
+export * from './pin-cluster';
 export * from './loyalty';
 export * from './money';
 export * from './opening-hours';

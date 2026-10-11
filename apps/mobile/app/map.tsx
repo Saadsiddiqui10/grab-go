@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
@@ -14,7 +14,9 @@ import {
   type CategoryColorSet,
 } from '@grabgo/config';
 import type { BusinessSummary, ListingSummary } from '@grabgo/types';
-import { GrabGoMap } from '../src/map/GrabGoMap';
+import { clusterPoints, formatDistance, type PinCluster } from '@grabgo/core';
+import type { GeoJSONSourceRef } from '@maplibre/maplibre-react-native';
+import { GrabGoMap, type GrabGoMapHandle } from '../src/map/GrabGoMap';
 import { loadMapLibre } from '../src/map/native';
 import { useListings, useMapCafes } from '../src/api/hooks';
 import { useLocationStore } from '../src/stores/location';
@@ -24,11 +26,15 @@ import { primaryCategory, useCategoryColors } from '../src/components/CategoryTa
 import { shadow, useTheme } from '../src/theme';
 import { categoryArt, FigmaIcon } from '../src/design/assets';
 import { selectionFeedback } from '../src/lib/feedback';
+import { formatPrepTime } from '../src/lib/format';
+import { CafeLogo } from '../src/components/LoyaltyComponents';
 
 /**
  * Every cafe in the city on one map, filterable by the same category tabs as
- * Home. Pins take their cafe's main drink colour (or the selected tab's) and
- * open the cafe's menu when tapped.
+ * Home. Pins take their cafe's main drink colour (or the selected tab's).
+ * Tapping one previews it in the bottom card; pins that would overlap gather
+ * into a numbered pin that zooms in when tapped. The same cafes can be read as
+ * a list, nearest first, for anyone who would rather not pan a map.
  *
  * The camera frames all matching cafes rather than a fixed neighbourhood, so a
  * cafe on the far side of Karachi is never silently off screen.
@@ -43,7 +49,19 @@ export default function MapScreen(): React.JSX.Element {
   // The craving panel's height, so the locate button and the map credit sit
   // just above it whatever the text size.
   const [panelHeight, setPanelHeight] = useState(250);
+  const [topHeight, setTopHeight] = useState(150);
   const aboveTray = insets.bottom + 8 + panelHeight + 12;
+  const mapRef = useRef<GrabGoMapHandle>(null);
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A tap on a native marker is also delivered to the map underneath; without
+  // this, selecting a pin would be undone by the same tap a moment later.
+  const lastPinTap = useRef(0);
+  const selectPin = (id: string | null): void => {
+    lastPinTap.current = Date.now();
+    setSelectedId(id);
+  };
+  const [view, setView] = useState<'map' | 'list'>('map');
 
   const cafes = useMapCafes({
     ...(origin ? { latitude: origin.latitude, longitude: origin.longitude } : {}),
@@ -64,6 +82,11 @@ export default function MapScreen(): React.JSX.Element {
   );
   const label = discoveryCategories.find((entry) => entry.slug === category)?.label;
 
+  // Regrouped only when a pan or zoom settles, never per animation frame.
+  const clusters = useMemo(() => clusterPoints(cafes.data ?? [], zoom), [cafes.data, zoom]);
+  // A filter can hide the cafe being previewed; the preview goes with it.
+  const selected = cafes.data?.find((cafe) => cafe.id === selectedId) ?? null;
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       {/* The redesign floats its own controls over a full-screen map. */}
@@ -72,6 +95,11 @@ export default function MapScreen(): React.JSX.Element {
       <StatusBar style="dark" />
 
       <GrabGoMap
+        ref={mapRef}
+        onRegionDidChange={(region) => setZoom(Math.round(region.zoom * 2) / 2)}
+        onPress={() => {
+          if (Date.now() - lastPinTap.current > 400) setSelectedId(null);
+        }}
         center={origin ? [origin.longitude, origin.latitude] : undefined}
         fitBounds={bounds}
         fitPadding={{ top: insets.top + 170, bottom: aboveTray + 20, left: 40, right: 40 }}
@@ -84,23 +112,44 @@ export default function MapScreen(): React.JSX.Element {
           <ListingDots
             listings={listings.data}
             onPress={(id) => router.push(`/listing/${id}`)}
+            onZoomInto={(center, toZoom) => mapRef.current?.easeTo(center, toZoom)}
           />
         ) : null}
-        {cafes.data?.map((cafe) => (
-          <CafePin
-            key={cafe.id}
-            cafe={cafe}
-            category={category ?? primaryCategory(cafe.tags)}
-            onPress={() => router.push(`/cafe/${cafe.id}`)}
-          />
-        ))}
+        {clusters.map((cluster) =>
+          cluster.members.length === 1 && cluster.members[0] ? (
+            <CafePin
+              key={cluster.id}
+              cafe={cluster.members[0]}
+              category={category ?? primaryCategory(cluster.members[0].tags)}
+              selected={cluster.members[0].id === selectedId}
+              onPress={() => {
+                selectionFeedback();
+                selectPin(cluster.members[0]?.id ?? null);
+              }}
+            />
+          ) : (
+            <ClusterPin
+              key={cluster.id}
+              cluster={cluster}
+              category={category}
+              onPress={() => {
+                selectionFeedback();
+                selectPin(null);
+                // Two levels in is usually enough to part a cluster; it
+                // regroups (smaller) if not, and the user can tap again.
+                mapRef.current?.easeTo([cluster.longitude, cluster.latitude], Math.min(18, (zoom ?? 11) + 2));
+              }}
+            />
+          ),
+        )}
       </GrabGoMap>
 
       {/* ------------------------------------------------- search panel */}
       <View
+        onLayout={(event) => setTopHeight(Math.round(event.nativeEvent.layout.height))}
         style={[
           styles.panel,
-          { top: insets.top + 8, backgroundColor: theme.colors.background, gap: 14 },
+          { top: insets.top + 8, backgroundColor: theme.colors.background, gap: 14, zIndex: 2 },
           shadow('md'),
         ]}
       >
@@ -128,9 +177,11 @@ export default function MapScreen(): React.JSX.Element {
               <FigmaIcon name="chevronDown" size={16} tint={theme.colors.heading} />
             </Pressable>
           </View>
-          <Text variant="caption" color="textSecondary" style={{ fontWeight: '400' }}>
-            Café map
-          </Text>
+          <ViewToggle value={view} onChange={(next) => {
+            selectionFeedback();
+            setSelectedId(null);
+            setView(next);
+          }} />
         </View>
 
         {/* Opens Discover, where search lives, as on the home screen. */}
@@ -164,7 +215,20 @@ export default function MapScreen(): React.JSX.Element {
         </Text>
       </View>
 
+      {/* ------------------------------------------------------- list */}
+      {view === 'list' ? (
+        <CafeList
+          cafes={cafes.data ?? []}
+          isLoading={cafes.isLoading}
+          top={insets.top + 8 + topHeight}
+          bottom={aboveTray - 12}
+          category={category}
+          onOpen={(id) => router.push(`/cafe/${id}`)}
+        />
+      ) : null}
+
       {/* ---------------------------------------------------- locate me */}
+      {view === 'map' ? (
       <Pressable
         onPress={() => void requestAndLocate()}
         accessibilityRole="button"
@@ -177,13 +241,28 @@ export default function MapScreen(): React.JSX.Element {
       >
         <FigmaIcon name="locateFixed" size={22} tint={theme.colors.heading} />
       </Pressable>
+      ) : null}
 
-      {/* -------------------------------------------- what are you craving */}
+      {/* ------------------------------------------- preview, or cravings */}
+      {selected && view === 'map' ? (
+        <View
+          onLayout={(event) => setPanelHeight(Math.round(event.nativeEvent.layout.height))}
+          style={[styles.panel, { bottom: insets.bottom + 8, backgroundColor: theme.colors.background }, shadow('md')]}
+        >
+          <CafePreview
+            cafe={selected}
+            category={category ?? primaryCategory(selected.tags)}
+            onOpen={() => router.push(`/cafe/${selected.id}`)}
+            onClose={() => setSelectedId(null)}
+          />
+        </View>
+      ) : (
       <View
         onLayout={(event) => setPanelHeight(Math.round(event.nativeEvent.layout.height))}
         style={[
           styles.panel,
-          { bottom: insets.bottom + 8, backgroundColor: theme.colors.background, gap: 12 },
+          // Above the list too: the cravings filter both views.
+          { bottom: insets.bottom + 8, backgroundColor: theme.colors.background, gap: 12, zIndex: 2 },
           shadow('md'),
         ]}
       >
@@ -195,6 +274,7 @@ export default function MapScreen(): React.JSX.Element {
         </View>
         <CravingGrid selected={category} onChange={setCategory} />
       </View>
+      )}
     </View>
   );
 }
@@ -328,11 +408,14 @@ function summary(
 function ListingDots({
   listings,
   onPress,
+  onZoomInto,
 }: {
   listings: ListingSummary[];
   onPress: (id: string) => void;
+  onZoomInto: (center: [number, number], zoom: number) => void;
 }): React.JSX.Element | null {
   const maplibre = loadMapLibre();
+  const sourceRef = useRef<GeoJSONSourceRef>(null);
   const shape = useMemo(
     () => ({
       type: 'FeatureCollection' as const,
@@ -349,17 +432,60 @@ function ListingDots({
   const { GeoJSONSource, Layer } = maplibre;
 
   return (
+    // Hundreds of cafes are not on Grab & Go yet; at city zoom they gather into
+    // counted grey circles (clustered natively, on the GPU) that open up as
+    // you zoom or tap, and never compete with the partner pins.
     <GeoJSONSource
       id="listings"
+      ref={sourceRef}
       data={shape}
+      cluster
+      clusterRadius={44}
+      clusterMaxZoom={14}
       onPress={(event) => {
-        const id = event.nativeEvent.features[0]?.properties?.id;
-        if (typeof id === 'string') onPress(id);
+        const feature = event.nativeEvent.features[0];
+        const properties = feature?.properties ?? {};
+        if (properties.cluster && typeof properties.cluster_id === 'number') {
+          const coordinates = (feature?.geometry as { coordinates?: [number, number] } | undefined)?.coordinates;
+          void sourceRef.current
+            ?.getClusterExpansionZoom(properties.cluster_id)
+            .then((zoom) => {
+              if (coordinates) onZoomInto(coordinates, zoom + 0.5);
+            })
+            .catch(() => undefined);
+          return;
+        }
+        if (typeof properties.id === 'string') onPress(properties.id);
       }}
     >
       <Layer
+        id="listing-clusters"
+        type="circle"
+        filter={['has', 'point_count']}
+        paint={{
+          'circle-color': MAP_INK.dot,
+          'circle-opacity': 0.32,
+          'circle-stroke-color': MAP_INK.paper,
+          'circle-stroke-width': 1.5,
+          'circle-radius': ['step', ['get', 'point_count'], 11, 10, 13, 50, 16, 150, 19],
+        }}
+      />
+      <Layer
+        id="listing-cluster-count"
+        type="symbol"
+        filter={['has', 'point_count']}
+        layout={{
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 11,
+          'text-allow-overlap': true,
+        }}
+        paint={{ 'text-color': MAP_INK.text, 'text-opacity': 0.7 }}
+      />
+      <Layer
         id="listing-dots"
         type="circle"
+        filter={['!', ['has', 'point_count']]}
         paint={{
           'circle-color': MAP_INK.dot,
           'circle-opacity': 0.75,
@@ -425,10 +551,12 @@ function boundsOf(
 function CafePin({
   cafe,
   category,
+  selected = false,
   onPress,
 }: {
   cafe: BusinessSummary;
   category: string | null;
+  selected?: boolean;
   onPress: () => void;
 }): React.JSX.Element | null {
   const theme = useTheme();
@@ -459,8 +587,15 @@ function CafePin({
       <View
         accessible
         accessibilityRole="button"
-        accessibilityLabel={`${cafe.name}, ${cafe.areaName ?? ''}${open ? '' : ', closed'}. Open menu`}
-        style={{ alignItems: 'center', opacity: open ? 1 : 0.55 }}
+        accessibilityLabel={`${cafe.name}, ${cafe.areaName ?? ''}${open ? '' : ', closed'}. Show details`}
+        accessibilityState={{ selected }}
+        style={{
+          alignItems: 'center',
+          // Dimmed a little when closed, but solid enough to stand out from
+          // the grey cafes that are not on Grab & Go yet.
+          opacity: open || selected ? 1 : 0.82,
+          transform: [{ scale: selected ? 1.18 : 1 }],
+        }}
       >
         <View style={{ width: 46, height: 46 }}>
           <View
@@ -517,14 +652,293 @@ function CafePin({
             paddingHorizontal: 6,
             paddingVertical: 2,
             borderRadius: theme.radii.sm,
-            backgroundColor: MAP_INK.paper,
+            backgroundColor: selected ? MAP_INK.text : MAP_INK.paper,
           }}
         >
-          <Text variant="caption" numberOfLines={1} maxScale={1.2} style={{ color: MAP_INK.text }}>
+          <Text
+            variant="caption"
+            numberOfLines={1}
+            maxScale={1.2}
+            style={{ color: selected ? MAP_INK.paper : MAP_INK.text, fontWeight: selected ? '700' : '400' }}
+          >
             {cafe.name}
           </Text>
         </View>
       </View>
     </Marker>
+  );
+}
+
+/** Partner cafes that would overlap: a stack with the count, in the tab colour. */
+function ClusterPin({
+  cluster,
+  category,
+  onPress,
+}: {
+  cluster: PinCluster<BusinessSummary>;
+  category: string | null;
+  onPress: () => void;
+}): React.JSX.Element | null {
+  const maplibre = loadMapLibre();
+  if (maplibre === null) return null;
+  const { Marker } = maplibre;
+  const colours = ((category ? categoryColors[category] : undefined) ?? defaultCategoryColors).light;
+  const count = cluster.members.length;
+  const names = cluster.members.map((member) => member.name);
+
+  return (
+    <Marker id={`cluster:${cluster.id}`} lngLat={[cluster.longitude, cluster.latitude]} anchor="center" onPress={onPress}>
+      <View
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={`${count} cafes here: ${names.join(', ')}. Zoom in`}
+        style={{ alignItems: 'center' }}
+      >
+        {/* Two offset rings behind read as "more than one". */}
+        <View style={{ width: 54, height: 50 }}>
+          {[8, 4].map((offset) => (
+            <View
+              key={offset}
+              style={{
+                position: 'absolute',
+                left: offset,
+                top: 8 - offset,
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                backgroundColor: colours.solid,
+                opacity: 0.35 + (8 - offset) * 0.08,
+                borderWidth: 2,
+                borderColor: MAP_INK.paper,
+              }}
+            />
+          ))}
+          <View
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 8,
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colours.solid,
+              borderWidth: 3,
+              borderColor: MAP_INK.paper,
+            }}
+          >
+            <Text maxScale={1} style={{ color: colours.onSolid, fontSize: 16, lineHeight: 19, fontWeight: '800' }}>
+              {count}
+            </Text>
+          </View>
+        </View>
+        <View style={{ marginTop: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: MAP_INK.paper }}>
+          <Text variant="caption" numberOfLines={1} maxScale={1.2} style={{ color: MAP_INK.text, maxWidth: 150 }}>
+            {names[0]} +{count - 1}
+          </Text>
+        </View>
+      </View>
+    </Marker>
+  );
+}
+
+/** Map or list: the same cafes, two ways of reading them. */
+function ViewToggle({
+  value,
+  onChange,
+}: {
+  value: 'map' | 'list';
+  onChange: (next: 'map' | 'list') => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const options = [
+    { key: 'map' as const, icon: 'map-outline' as const, label: 'Map' },
+    { key: 'list' as const, icon: 'list-outline' as const, label: 'List' },
+  ];
+
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      style={{ flexDirection: 'row', padding: 3, borderRadius: 12, backgroundColor: theme.colors.accentSoft }}
+    >
+      {options.map((option) => {
+        const active = value === option.key;
+        return (
+          <Pressable
+            key={option.key}
+            onPress={() => onChange(option.key)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`Show cafes as a ${option.label.toLowerCase()}`}
+            hitSlop={4}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 9,
+              backgroundColor: active ? theme.colors.background : 'transparent',
+            }}
+          >
+            <Ionicons name={option.icon} size={15} color={active ? theme.colors.heading : theme.colors.textSecondary} />
+            <Text
+              variant="caption"
+              maxScale={1.3}
+              style={{ color: active ? theme.colors.heading : theme.colors.textSecondary, fontWeight: active ? '700' : '400' }}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** One line of facts a customer decides on: open, distance, how fast, rating. */
+function facts(cafe: BusinessSummary, { withArea = true } = {}): string {
+  const parts = [
+    cafe.isOpenNow ? (cafe.acceptingOrders ? `Ready in ${formatPrepTime(cafe.prepTimeMinutes)}` : 'Paused orders') : 'Closed',
+    cafe.distanceMeters !== null ? formatDistance(cafe.distanceMeters) : withArea ? cafe.areaName : null,
+    cafe.rating !== null ? `★ ${cafe.rating.toFixed(1)}` : null,
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
+
+/** The bottom card for a tapped pin: enough to decide, one tap to the menu. */
+function CafePreview({
+  cafe,
+  category,
+  onOpen,
+  onClose,
+}: {
+  cafe: BusinessSummary;
+  category: string | null;
+  onOpen: () => void;
+  onClose: () => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const colours = (categoryColors[category ?? ''] ?? defaultCategoryColors).light;
+  const open = cafe.isOpenNow && cafe.acceptingOrders;
+
+  return (
+    <View style={{ gap: 14 }} accessibilityViewIsModal={false}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ borderRadius: 14, borderWidth: 2, borderColor: colours.solid }}>
+          <CafeLogo name={cafe.name} uri={cafe.logoUrl} size={48} />
+        </View>
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text variant="bodyStrong" color="heading" numberOfLines={1}>
+            {cafe.name}
+          </Text>
+          <Text variant="footnote" color="textSecondary" numberOfLines={1}>
+            {cafe.areaName ?? cafe.cityName ?? ''}
+          </Text>
+          <Text variant="footnote" color={open ? 'success' : 'textMuted'} numberOfLines={1}>
+            {facts(cafe, { withArea: false })}
+          </Text>
+        </View>
+        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close preview" hitSlop={10}>
+          <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+        </Pressable>
+      </View>
+
+      <Pressable
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${cafe.name} menu`}
+        style={({ pressed }) => ({
+          height: 48,
+          borderRadius: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: theme.colors.accent,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <Text variant="bodyStrong" style={{ color: '#FFFFFF' }}>
+          {open ? 'View menu and order' : 'View menu'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** The list view: the same filtered cafes, nearest (or best) first. */
+function CafeList({
+  cafes,
+  isLoading,
+  top,
+  bottom,
+  category,
+  onOpen,
+}: {
+  cafes: BusinessSummary[];
+  isLoading: boolean;
+  top: number;
+  bottom: number;
+  category: string | null;
+  onOpen: (id: string) => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        backgroundColor: theme.colors.background,
+        zIndex: 1,
+      }}
+    >
+      <FlatList
+        data={cafes}
+        keyExtractor={(cafe) => cafe.id}
+        contentContainerStyle={{ paddingTop: top + 12, paddingBottom: bottom + 12, paddingHorizontal: 16, gap: 10 }}
+        ListEmptyComponent={
+          <Text variant="body" color="textSecondary" align="center" style={{ marginTop: 24 }}>
+            {isLoading ? 'Finding cafes…' : 'No cafes match. Try another craving.'}
+          </Text>
+        }
+        renderItem={({ item }) => {
+          const colours = (categoryColors[category ?? primaryCategory(item.tags) ?? ''] ?? defaultCategoryColors).light;
+          const open = item.isOpenNow && item.acceptingOrders;
+          return (
+            <Pressable
+              onPress={() => onOpen(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name}. ${facts(item)}`}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                padding: 12,
+                borderRadius: 16,
+                backgroundColor: theme.colors.surface,
+                opacity: pressed ? 0.85 : open ? 1 : 0.7,
+                borderLeftWidth: 4,
+                borderLeftColor: colours.solid,
+              })}
+            >
+              <CafeLogo name={item.name} uri={item.logoUrl} size={44} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="bodyStrong" color="heading" numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text variant="footnote" color={open ? 'textSecondary' : 'textMuted'} numberOfLines={1}>
+                  {facts(item)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+            </Pressable>
+          );
+        }}
+      />
+    </View>
   );
 }

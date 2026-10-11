@@ -12,6 +12,9 @@ import type { DbOrTx } from '../db';
 
 export const AuditAction = {
   BUSINESS_CREATED: 'business.created',
+  POS_CONFIGURED: 'pos.configured',
+  POS_SECRET_ROTATED: 'pos.secret_rotated',
+  POS_RETRIED: 'pos.retried',
   BUSINESS_APPROVED: 'business.approved',
   BUSINESS_REJECTED: 'business.rejected',
   BUSINESS_SUSPENDED: 'business.suspended',

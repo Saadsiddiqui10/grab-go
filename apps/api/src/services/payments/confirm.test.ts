@@ -27,6 +27,15 @@ const store = vi.hoisted(() => ({
 }));
 
 const emitted = vi.hoisted(() => ({ count: 0 }));
+const posEvents = vi.hoisted(() => ({ queued: [] as string[] }));
+
+// The POS outbox has its own tests; here it only has to be told once.
+vi.mock('../pos/pos.service', () => ({
+  enqueueOrderEvent: async (_tx: unknown, _order: unknown, event: string) => {
+    posEvents.queued.push(event);
+  },
+  flushOrderJobs: async () => undefined,
+}));
 
 vi.mock('../../realtime', () => ({
   emitPaymentChanged: () => {
@@ -62,7 +71,10 @@ vi.mock('../../db', () => {
       return data;
     },
   };
-  const tx = { payment, paymentTransaction };
+  const order = {
+    findUniqueOrThrow: async () => ({ id: 'order_1', businessId: 'biz_1' }),
+  };
+  const tx = { payment, paymentTransaction, order };
   return {
     prisma: {
       ...tx,
@@ -97,6 +109,7 @@ beforeEach(() => {
   };
   store.transactions = [];
   emitted.count = 0;
+  posEvents.queued = [];
 });
 
 describe('confirmPayment', () => {
@@ -112,6 +125,8 @@ describe('confirmPayment', () => {
     expect(fromWebhook.status).toBe('PAID');
     expect(store.transactions.filter((t) => t.type === 'CAPTURE')).toHaveLength(1);
     expect(emitted.count).toBe(1);
+    // ...and the café's POS hears about the payment once, too.
+    expect(posEvents.queued).toEqual(['order.paid']);
   });
 
   it('does not let a stale decline overwrite a payment settled meanwhile', async () => {

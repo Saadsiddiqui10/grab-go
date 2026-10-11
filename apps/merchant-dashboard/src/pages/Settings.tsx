@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CafeStaffMember, StaffRole } from '@grabgo/types';
 import {
@@ -22,6 +22,7 @@ import {
 } from '@grabgo/ui';
 import { api, merchantApi } from '../api';
 import { useDashboard } from '../store';
+import { PosCard } from './PosIntegration';
 
 /**
  * Cafe settings: trading controls, opening hours and staff.
@@ -35,6 +36,12 @@ export function SettingsPage(): React.JSX.Element {
   const business = useDashboard((state) => state.currentBusiness());
   const isManager = useDashboard((state) => state.isManager());
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const refreshBusinesses = async (): Promise<void> => {
     await useDashboard.getState().bootstrap();
@@ -140,6 +147,9 @@ export function SettingsPage(): React.JSX.Element {
           void refreshBusinesses();
         }}
       />
+
+      {/* ----------------------------------------------------------- POS */}
+      <PosCard businessId={business.id} isManager={isManager} onToast={setToast} />
 
       {/* ------------------------------------------------------ holidays */}
       <Card>

@@ -22,7 +22,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/* ------------------------------------------------------------------ identity */
+/**
+ * ------------------------------------------------------------------ identity
+ */
 
 enum UserRole {
   CUSTOMER
@@ -65,13 +67,13 @@ model User {
   /// Set once, at signup, when this account arrived through someone's code.
   referredById String?
 
-  lastLoginAt DateTime?
-  suspendedAt DateTime?
+  lastLoginAt     DateTime?
+  suspendedAt     DateTime?
   suspendedReason String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   /// Soft delete: orders and merchant statements must survive account removal.
-  deletedAt   DateTime?
+  deletedAt       DateTime?
 
   profile             UserProfile?
   identities          AuthIdentity[]
@@ -86,8 +88,8 @@ model User {
   pointsAccounts      PointsAccount[]
   pointsTransactions  PointsTransaction[]
   rewardRedemptions   RewardRedemption[]
-  referralsMade       Referral[]           @relation("Referrer")
-  referralReceived    Referral?            @relation("Referee")
+  referralsMade       Referral[]               @relation("Referrer")
+  referralReceived    Referral?                @relation("Referee")
   referralRewards     ReferralReward[]
   promoRedemptions    PromoRedemption[]
   reviews             Review[]
@@ -209,7 +211,9 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
-/* ----------------------------------------------------------------- geography */
+/**
+ * ----------------------------------------------------------------- geography
+ */
 
 model City {
   id          String   @id @default(cuid())
@@ -250,7 +254,9 @@ model Area {
   @@map("areas")
 }
 
-/* ---------------------------------------------------------------- businesses */
+/**
+ * ---------------------------------------------------------------- businesses
+ */
 
 enum BusinessType {
   CAFE
@@ -271,13 +277,13 @@ enum BusinessStatus {
 }
 
 model Business {
-  id          String         @id @default(cuid())
-  slug        String         @unique
-  name        String
-  type        BusinessType   @default(CAFE)
-  status      BusinessStatus @default(PENDING_APPROVAL)
-  description String?
-  logoUrl     String?
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String
+  type          BusinessType   @default(CAFE)
+  status        BusinessStatus @default(PENDING_APPROVAL)
+  description   String?
+  logoUrl       String?
   coverImageUrl String?
 
   addressLine String
@@ -292,14 +298,14 @@ model Business {
   timezone String @default("Asia/Karachi")
 
   /// Baseline "ready in ~N min" shown before an order exists.
-  prepTimeMinutes         Int @default(10)
+  prepTimeMinutes         Int  @default(10)
   /// Lead time the kitchen needs before the earliest pickup slot.
-  minLeadTimeMinutes      Int @default(10)
-  maxScheduleAheadMinutes Int @default(1440)
+  minLeadTimeMinutes      Int  @default(10)
+  maxScheduleAheadMinutes Int  @default(1440)
   /// Null means no ceiling on concurrent in-flight orders.
   maxConcurrentOrders     Int?
   maxOrdersPerSlot        Int?
-  minimumOrderTotal       Int @default(0)
+  minimumOrderTotal       Int  @default(0)
 
   /// Economics, snapshotted onto each order so rate changes are not retroactive.
   commissionBasisPoints Int @default(1000)
@@ -330,20 +336,22 @@ model Business {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  city        City             @relation(fields: [cityId], references: [id])
-  area        Area?            @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  hours       BusinessHour[]
-  holidays    BusinessHoliday[]
-  staff       CafeStaff[]
-  categories  MenuCategory[]
-  menuItems   MenuItem[]
-  orders      Order[]
-  favourites  Favourite[]
-  reviews     Review[]
-  rewards     Reward[]
-  promotions  Promotion[]
+  city            City              @relation(fields: [cityId], references: [id])
+  area            Area?             @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  hours           BusinessHour[]
+  holidays        BusinessHoliday[]
+  staff           CafeStaff[]
+  categories      MenuCategory[]
+  menuItems       MenuItem[]
+  orders          Order[]
+  favourites      Favourite[]
+  reviews         Review[]
+  rewards         Reward[]
+  promotions      Promotion[]
   partnerRequests PartnerRequest[]
   pointsAccounts  PointsAccount[]
+  posConnection   PosConnection?
+  posSyncJobs     PosSyncJob[]
 
   @@index([cityId, status])
   @@index([areaId])
@@ -411,7 +419,9 @@ model CafeStaff {
   @@map("cafe_staff")
 }
 
-/* ---------------------------------------------------------------------- menu */
+/**
+ * ---------------------------------------------------------------------- menu
+ */
 
 model MenuCategory {
   id          String   @id @default(cuid())
@@ -431,7 +441,7 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   businessId      String
   categoryId      String
   name            String
@@ -439,22 +449,22 @@ model MenuItem {
   imageUrl        String?
   /// Paisa. Variant and modifier deltas are added on top at pricing time.
   basePrice       Int
-  isAvailable     Boolean  @default(true)
+  isAvailable     Boolean   @default(true)
   /// Distinct from `isAvailable`: sold out is a today problem, not a menu change.
-  isSoldOut       Boolean  @default(false)
-  isPopular       Boolean  @default(false)
+  isSoldOut       Boolean   @default(false)
+  isPopular       Boolean   @default(false)
   calories        Int?
   prepTimeMinutes Int?
-  sortOrder       Int      @default(0)
-  tags            String[] @default([])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  sortOrder       Int       @default(0)
+  tags            String[]  @default([])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  business  Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  category  MenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  variants  MenuItemVariant[]
-  modifiers MenuItemModifier[]
+  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category   MenuCategory       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  variants   MenuItemVariant[]
+  modifiers  MenuItemModifier[]
   orderItems OrderItem[]
 
   @@index([businessId, isAvailable])
@@ -513,14 +523,16 @@ model MenuItemModifierOption {
   isAvailable Boolean @default(true)
   sortOrder   Int     @default(0)
 
-  modifier            MenuItemModifier    @relation(fields: [modifierId], references: [id], onDelete: Cascade)
-  orderItemModifiers  OrderItemModifier[]
+  modifier           MenuItemModifier    @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  orderItemModifiers OrderItemModifier[]
 
   @@index([modifierId, sortOrder])
   @@map("menu_item_modifier_options")
 }
 
-/* -------------------------------------------------------------------- orders */
+/**
+ * -------------------------------------------------------------------- orders
+ */
 
 enum OrderStatus {
   PENDING
@@ -538,6 +550,30 @@ enum OrderStatus {
 enum PickupMethod {
   WALK_IN
   CURBSIDE
+}
+
+enum OrderSource {
+  APP
+  POS
+  STAFF
+}
+
+/// How a cafe's point-of-sale system receives Grab & Go orders.
+///
+/// WEBHOOK is the generic adapter: every order event is POSTed, signed, to an
+/// HTTPS endpoint the cafe (or its POS vendor) runs. Vendor-specific adapters
+/// are added as new values once there is a real integration behind them.
+enum PosProvider {
+  NONE
+  WEBHOOK
+}
+
+enum PosSyncStatus {
+  PENDING
+  SUCCEEDED
+  /// Gave up: out of retries, or the endpoint refused the payload outright.
+  /// A cafe can retry it by hand.
+  FAILED
 }
 
 enum OrderType {
@@ -578,7 +614,11 @@ model Order {
   status      OrderStatus @default(PENDING)
   type        OrderType   @default(PICKUP)
 
-  pickupMode       PickupMode @default(ASAP)
+  /// Where the order was placed. Everything is APP today; the field lets a
+  /// cafe's POS (or staff keying an order in) share the board later without
+  /// a migration, and lets analytics separate the channels.
+  source           OrderSource  @default(APP)
+  pickupMode       PickupMode   @default(ASAP)
   /// Walk in to the counter, or have the order brought out to the car.
   pickupMethod     PickupMethod @default(WALK_IN)
   /// For CURBSIDE: the number plate staff look for, and an optional
@@ -620,8 +660,8 @@ model Order {
   promoCode    String?
   redemptionId String? @unique
 
-  pointsEarned     Int?
-  pointsAwardedAt  DateTime?
+  pointsEarned    Int?
+  pointsAwardedAt DateTime?
 
   /// Single-use credential shown at the counter. Never logged.
   pickupCode         String
@@ -637,6 +677,7 @@ model Order {
   user                User                 @relation(fields: [userId], references: [id])
   items               OrderItem[]
   statusEvents        OrderStatusEvent[]
+  posSyncJobs         PosSyncJob[]
   payment             Payment?
   pickupVerifications PickupVerification[]
   review              Review?
@@ -718,13 +759,13 @@ enum PickupVerificationMethod {
 
 /// Every attempt, successful or not, so counter fraud leaves a trail.
 model PickupVerification {
-  id              String                   @id @default(cuid())
-  orderId         String
+  id               String                   @id @default(cuid())
+  orderId          String
   verifiedByUserId String?
-  method          PickupVerificationMethod @default(CODE)
-  succeeded       Boolean
-  ipAddress       String?
-  createdAt       DateTime                 @default(now())
+  method           PickupVerificationMethod @default(CODE)
+  succeeded        Boolean
+  ipAddress        String?
+  createdAt        DateTime                 @default(now())
 
   order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   verifiedBy User? @relation(fields: [verifiedByUserId], references: [id], onDelete: SetNull)
@@ -733,7 +774,9 @@ model PickupVerification {
   @@map("pickup_verifications")
 }
 
-/* ------------------------------------------------------------------ payments */
+/**
+ * ------------------------------------------------------------------ payments
+ */
 
 enum PaymentStatus {
   PENDING
@@ -809,7 +852,9 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
-/* ----------------------------------------------------------------- favourites */
+/**
+ * ----------------------------------------------------------------- favourites
+ */
 
 model Favourite {
   id         String   @id @default(cuid())
@@ -845,7 +890,9 @@ model SavedAddress {
   @@map("addresses")
 }
 
-/* ------------------------------------------------------------------- loyalty */
+/**
+ * ------------------------------------------------------------------- loyalty
+ */
 
 enum PointsTransactionType {
   ORDER_EARNED
@@ -907,10 +954,10 @@ model PointsTransaction {
   user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   order   Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
-  @@index([userId, createdAt])
-  @@index([accountId, createdAt])
   /// One earn row per order, enforced at the database rather than in a service.
   @@unique([orderId, type])
+  @@index([userId, createdAt])
+  @@index([accountId, createdAt])
   @@map("points_transactions")
 }
 
@@ -921,7 +968,7 @@ enum RewardType {
 }
 
 model Reward {
-  id                  String   @id @default(cuid())
+  id                  String     @id @default(cuid())
   name                String
   description         String?
   imageUrl            String?
@@ -931,17 +978,17 @@ model Reward {
   discountPercentage  Float?
   maxDiscountAmount   Int?
   /// For FREE_ITEM: which menu items this reward covers.
-  freeItemMenuItemIds String[] @default([])
+  freeItemMenuItemIds String[]   @default([])
   /// The cafe that offers this reward; it is redeemable only there, with
   /// points earned there.
   businessId          String
   expiresAt           DateTime?
   usageLimit          Int?
-  usageCount          Int      @default(0)
-  isActive            Boolean  @default(true)
-  sortOrder           Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  usageCount          Int        @default(0)
+  isActive            Boolean    @default(true)
+  sortOrder           Int        @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   redemptions RewardRedemption[]
@@ -960,16 +1007,16 @@ enum RedemptionStatus {
 }
 
 model RewardRedemption {
-  id         String           @id @default(cuid())
-  userId     String
-  rewardId   String
-  status     RedemptionStatus @default(ISSUED)
+  id          String           @id @default(cuid())
+  userId      String
+  rewardId    String
+  status      RedemptionStatus @default(ISSUED)
   pointsSpent Int
-  code       String           @unique
-  expiresAt  DateTime?
-  appliedAt  DateTime?
-  consumedAt DateTime?
-  createdAt  DateTime         @default(now())
+  code        String           @unique
+  expiresAt   DateTime?
+  appliedAt   DateTime?
+  consumedAt  DateTime?
+  createdAt   DateTime         @default(now())
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   reward          Reward           @relation(fields: [rewardId], references: [id])
@@ -980,7 +1027,9 @@ model RewardRedemption {
   @@map("reward_redemptions")
 }
 
-/* ----------------------------------------------------------------- referrals */
+/**
+ * ----------------------------------------------------------------- referrals
+ */
 
 enum ReferralStatus {
   PENDING
@@ -990,17 +1039,17 @@ enum ReferralStatus {
 }
 
 model Referral {
-  id         String         @id @default(cuid())
-  referrerId String
+  id                String         @id @default(cuid())
+  referrerId        String
   /// One row per referred account: an account can only ever be referred once.
-  refereeId  String         @unique
-  code       String
-  status     ReferralStatus @default(PENDING)
-  signedUpAt DateTime       @default(now())
-  qualifiedAt DateTime?
-  rewardedAt  DateTime?
+  refereeId         String         @unique
+  code              String
+  status            ReferralStatus @default(PENDING)
+  signedUpAt        DateTime       @default(now())
+  qualifiedAt       DateTime?
+  rewardedAt        DateTime?
   /// The referee order that satisfied the qualification rule.
-  qualifyingOrderId String? @unique
+  qualifyingOrderId String?        @unique
   rejectionReason   String?
 
   /// Abuse signals captured at signup. The IP is hashed, never stored raw.
@@ -1043,7 +1092,9 @@ model ReferralReward {
   @@map("referral_rewards")
 }
 
-/* ---------------------------------------------------------------- promotions */
+/**
+ * ---------------------------------------------------------------- promotions
+ */
 
 enum PromotionType {
   FIXED_DISCOUNT
@@ -1102,7 +1153,9 @@ model PromoRedemption {
   @@map("promo_redemptions")
 }
 
-/* ------------------------------------------------------------------- reviews */
+/**
+ * ------------------------------------------------------------------- reviews
+ */
 
 model Review {
   id         String   @id @default(cuid())
@@ -1123,7 +1176,9 @@ model Review {
   @@map("reviews")
 }
 
-/* ------------------------------------------------------------- notifications */
+/**
+ * ------------------------------------------------------------- notifications
+ */
 
 enum NotificationChannel {
   PUSH
@@ -1141,17 +1196,17 @@ enum NotificationTopic {
 }
 
 model Notification {
-  id      String              @id @default(cuid())
-  userId  String
-  topic   NotificationTopic
-  channel NotificationChannel @default(PUSH)
-  title   String
-  body    String
-  data    Json?
-  sentAt  DateTime?
-  readAt  DateTime?
-  error   String?
-  createdAt DateTime          @default(now())
+  id        String              @id @default(cuid())
+  userId    String
+  topic     NotificationTopic
+  channel   NotificationChannel @default(PUSH)
+  title     String
+  body      String
+  data      Json?
+  sentAt    DateTime?
+  readAt    DateTime?
+  error     String?
+  createdAt DateTime            @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1172,7 +1227,9 @@ model NotificationPreference {
   @@map("notification_preferences")
 }
 
-/* ------------------------------------------------------- platform operations */
+/**
+ * ------------------------------------------------------- platform operations
+ */
 
 model PlatformSetting {
   key         String   @id
@@ -1252,4 +1309,62 @@ model PartnerRequest {
   @@unique([businessId, userId])
   @@index([businessId])
   @@map("partner_requests")
+}
+
+/**
+ * -------------------------------------------------------------------- POS
+ */
+
+/// One per cafe. The signing secret is stored encrypted (AES-256-GCM) because
+/// it must be recovered to sign each delivery; it is shown to the cafe once.
+model PosConnection {
+  id              String      @id @default(cuid())
+  businessId      String      @unique
+  business        Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  provider        PosProvider @default(NONE)
+  isEnabled       Boolean     @default(false)
+  endpointUrl     String?
+  secretEncrypted String?
+
+  lastSuccessAt DateTime?
+  lastFailureAt DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pos_connections")
+}
+
+/// Outbox: one row per order event to deliver, written in the same
+/// transaction as the event itself, so an order can never change without its
+/// POS delivery being queued. Delivered at least once; the POS deduplicates on
+/// the row id, sent as the delivery id.
+model PosSyncJob {
+  id             String        @id @default(cuid())
+  businessId     String
+  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// e.g. "order.created", "order.accepted".
+  event          String
+  /// One job per order per event, so a replayed transition queues nothing new.
+  eventKey       String        @unique
+  payload        Json
+  status         PosSyncStatus @default(PENDING)
+  attempts       Int           @default(0)
+  nextAttemptAt  DateTime      @default(now())
+  /// Claimed by a worker until this time; lets two API instances share the queue.
+  lockedUntil    DateTime?
+  lastError      String?
+  lastStatusCode Int?
+  succeededAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([businessId, status, createdAt])
+  @@index([orderId])
+  @@map("pos_sync_jobs")
 }

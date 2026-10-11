@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { CameraRef, LngLatBounds } from '@maplibre/maplibre-react-native';
 import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,8 +54,18 @@ export interface GrabGoMapProps {
     | { bottom: number; left: number };
   /** Space to keep clear when fitting, e.g. under floating panels. */
   fitPadding?: { top: number; right: number; bottom: number; left: number };
+  /** After every pan or zoom settles (including programmatic moves). */
+  onRegionDidChange?: (view: { zoom: number; center: [number, number]; bounds: LngLatBounds }) => void;
+  /** A tap on the map itself, not on a marker or tappable layer. */
+  onPress?: () => void;
   /** Map content — annotations, sources, layers. */
   children?: ReactNode;
+}
+
+/** Camera moves for screens that need to steer the map, e.g. into a cluster. */
+export interface GrabGoMapHandle {
+  easeTo(center: [number, number], zoom: number): void;
+  fitBounds(bounds: LngLatBounds, padding?: number): void;
 }
 
 /** Guards against a bad coordinate reaching the native side. */
@@ -61,7 +79,7 @@ function isValidCenter(center: [number, number]): boolean {
   );
 }
 
-export function GrabGoMap({
+export const GrabGoMap = forwardRef<GrabGoMapHandle, GrabGoMapProps>(function GrabGoMap({
   center = DEV_DEFAULT_CENTER,
   zoom = DEV_DEFAULT_ZOOM,
   minZoom = 3,
@@ -72,11 +90,27 @@ export function GrabGoMap({
   fitBounds,
   fitPadding,
   attributionPosition = { bottom: 8, right: 8 },
+  onRegionDidChange,
+  onPress,
   children,
-}: GrabGoMapProps): React.JSX.Element {
+}, ref): React.JSX.Element {
   const unavailable = mapUnavailableReason();
   const maplibre = loadMapLibre();
   const cameraRef = useRef<CameraRef>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      easeTo: (target, targetZoom) =>
+        cameraRef.current?.easeTo({ center: target, zoom: targetZoom, duration: 450 }),
+      fitBounds: (target, padding = 72) =>
+        cameraRef.current?.fitBounds(target, {
+          padding: { top: padding, bottom: padding, left: padding, right: padding },
+          duration: 450,
+        }),
+    }),
+    [],
+  );
 
   // Fitting bounds needs a loaded map with a real size. Asked earlier (data
   // often arrives before layout), MapLibre sees a 0-high view, rejects the
@@ -156,6 +190,17 @@ export function GrabGoMap({
         touchPitch={false}
         onDidFinishLoadingMap={handleReady}
         onDidFailLoadingMap={handleFailed}
+        onRegionDidChange={
+          onRegionDidChange
+            ? (event) =>
+                onRegionDidChange({
+                  zoom: event.nativeEvent.zoom,
+                  center: event.nativeEvent.center as [number, number],
+                  bounds: event.nativeEvent.bounds,
+                })
+            : undefined
+        }
+        onPress={onPress ? () => onPress() : undefined}
       >
         <Camera
           ref={cameraRef}
@@ -167,7 +212,7 @@ export function GrabGoMap({
       </Map>
     </View>
   );
-}
+});
 
 /**
  * Shown instead of the map when the native module is missing, which in practice

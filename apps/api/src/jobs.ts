@@ -2,6 +2,7 @@ import { prisma } from './db';
 import { getEnv } from './env';
 import { getPlatformConfig } from './services/settings.service';
 import { transitionOrder } from './services/order.service';
+import { processDuePosJobs } from './services/pos/pos.service';
 
 /**
  * Background maintenance.
@@ -131,6 +132,8 @@ export async function runMaintenance(): Promise<void> {
     expireUnacceptedOrders(),
     expireStalePoints(),
     pruneExpiredSessions(),
+    // Retries for POS deliveries that failed straight after their order changed.
+    processDuePosJobs(),
   ]);
 
   for (const result of results) {

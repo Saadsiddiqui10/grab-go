@@ -20,8 +20,16 @@ import {
   updateStaffSchema,
   verifyPickupSchema,
   verifyPickupTokenSchema,
+  posConnectionSchema,
 } from '@grabgo/validation';
 import { prisma } from '../db';
+import {
+  configurePos,
+  getPosStatus,
+  retryPosJobs,
+  rotatePosSecret,
+  testPosConnection,
+} from '../services/pos/pos.service';
 import { getEnv } from '../env';
 import { parse } from '../lib/validate';
 import { HttpError, forbidden, notFound, success } from '../lib/http-error';
@@ -421,6 +429,80 @@ export async function registerMerchantRoutes(app: FastifyInstance): Promise<void
     const body = parse(reorderItemsSchema, request.body);
     await reorderItems(businessId, body.ids);
     return success({ reordered: true });
+  });
+
+  /* ------------------------------------------------------------------ POS */
+
+  app.get('/merchant/:businessId/pos', async (request) => {
+    const { businessId } = request.params as { businessId: string };
+    await requireStaffOf(request, businessId);
+    return success(await getPosStatus(businessId));
+  });
+
+  app.put('/merchant/:businessId/pos', async (request) => {
+    const { businessId } = request.params as { businessId: string };
+    const principal = await requireStaffOf(request, businessId);
+    await assertManager(principal.userId, businessId, principal.isAdmin);
+    const body = parse(posConnectionSchema, request.body);
+
+    const result = await configurePos(businessId, {
+      provider: body.provider,
+      endpointUrl: body.endpointUrl ?? null,
+      isEnabled: body.provider !== 'NONE' && body.isEnabled,
+    });
+
+    await recordAudit(prisma, {
+      actorUserId: principal.userId,
+      action: AuditAction.POS_CONFIGURED,
+      targetType: 'business',
+      targetId: businessId,
+      // Never the secret.
+      newValue: { provider: body.provider, endpointUrl: body.endpointUrl ?? null, isEnabled: body.isEnabled },
+    });
+
+    return success({ ...(await getPosStatus(businessId)), secret: result.secret });
+  });
+
+  app.post('/merchant/:businessId/pos/rotate-secret', async (request) => {
+    const { businessId } = request.params as { businessId: string };
+    const principal = await requireStaffOf(request, businessId);
+    await assertManager(principal.userId, businessId, principal.isAdmin);
+    const result = await rotatePosSecret(businessId);
+
+    await recordAudit(prisma, {
+      actorUserId: principal.userId,
+      action: AuditAction.POS_SECRET_ROTATED,
+      targetType: 'business',
+      targetId: businessId,
+    });
+
+    return success(result);
+  });
+
+  app.post('/merchant/:businessId/pos/test', async (request) => {
+    const { businessId } = request.params as { businessId: string };
+    const principal = await requireStaffOf(request, businessId);
+    await assertManager(principal.userId, businessId, principal.isAdmin);
+    return success(await testPosConnection(businessId));
+  });
+
+  // Any staff member can retry: it is the fix for "the POS was down".
+  app.post('/merchant/:businessId/pos/retry', async (request) => {
+    const { businessId } = request.params as { businessId: string };
+    const principal = await requireStaffOf(request, businessId);
+    const body = (request.body ?? {}) as { jobId?: unknown };
+    const jobId = typeof body.jobId === 'string' ? body.jobId : undefined;
+    const result = await retryPosJobs(businessId, jobId);
+
+    await recordAudit(prisma, {
+      actorUserId: principal.userId,
+      action: AuditAction.POS_RETRIED,
+      targetType: 'business',
+      targetId: businessId,
+      newValue: { jobId: jobId ?? 'all', retried: result.retried },
+    });
+
+    return success({ ...result, status: await getPosStatus(businessId) });
   });
 
   /* ------------------------------------------------------------- settings */

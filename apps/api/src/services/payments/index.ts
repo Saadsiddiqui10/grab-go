@@ -4,6 +4,8 @@ import { getEnv } from '../../env';
 import { prisma, type Tx } from '../../db';
 import { HttpError, notFound } from '../../lib/http-error';
 import { emitPaymentChanged } from '../../realtime';
+import { orderWithRelations } from '../../mappers';
+import { enqueueOrderEvent, flushOrderJobs } from '../pos/pos.service';
 import { MockPaymentProvider } from './mock.provider';
 import type { PaymentProvider } from './provider';
 
@@ -236,10 +238,18 @@ export async function confirmPayment(
       },
     });
 
+    // The POS saw the order arrive unpaid; tell it the money is in.
+    const order = await tx.order.findUniqueOrThrow({
+      where: { id: payment.orderId },
+      ...orderWithRelations,
+    });
+    await enqueueOrderEvent(tx, order, 'order.paid');
+
     return true;
   });
 
   if (!settled) return currentStatus(payment.id);
+  void flushOrderJobs(payment.orderId);
 
   emitPaymentChanged(
     { orderId: payment.orderId, paymentStatus: 'PAID', at: new Date().toISOString() },

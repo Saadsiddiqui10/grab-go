@@ -54,6 +54,31 @@ export interface CafeReward {
   isActive: boolean;
 }
 
+/** What the dashboard sees of the café's POS connection (never the secret). */
+export interface PosStatus {
+  provider: 'NONE' | 'WEBHOOK';
+  isEnabled: boolean;
+  endpointUrl: string | null;
+  hasSecret: boolean;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastError: string | null;
+  pendingCount: number;
+  failedCount: number;
+  recentProblems: Array<{
+    id: string;
+    orderId: string;
+    orderNumber: string;
+    event: string;
+    status: 'PENDING' | 'FAILED';
+    attempts: number;
+    lastError: string | null;
+    lastStatusCode: number | null;
+    nextAttemptAt: string | null;
+    createdAt: string;
+  }>;
+}
+
 export const merchantApi = {
   login: (email: string, password: string) =>
     api.post<AuthSession>('/auth/merchant/login', { email, password }),
@@ -154,6 +179,27 @@ export const merchantApi = {
 
   updateReward: (businessId: string, rewardId: string, body: Record<string, unknown>) =>
     api.patch<CafeReward>(`/merchant/${businessId}/rewards/${rewardId}`, body),
+
+  /* ------------------------------------------------------------------ POS */
+
+  posStatus: (businessId: string) => api.get<PosStatus>(`/merchant/${businessId}/pos`),
+
+  configurePos: (
+    businessId: string,
+    body: { provider: 'NONE' | 'WEBHOOK'; endpointUrl?: string | null; isEnabled?: boolean },
+  ) => api.put<PosStatus & { secret: string | null }>(`/merchant/${businessId}/pos`, body),
+
+  rotatePosSecret: (businessId: string) =>
+    api.post<{ secret: string }>(`/merchant/${businessId}/pos/rotate-secret`, {}),
+
+  testPos: (businessId: string) =>
+    api.post<{ ok: boolean; message: string }>(`/merchant/${businessId}/pos/test`, {}),
+
+  retryPos: (businessId: string, jobId?: string) =>
+    api.post<{ retried: number; status: PosStatus }>(
+      `/merchant/${businessId}/pos/retry`,
+      jobId ? { jobId } : {},
+    ),
 
   /* ------------------------------------------------------------- settings */
 

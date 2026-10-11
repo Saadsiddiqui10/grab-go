@@ -5,5 +5,6 @@ export * from './common';
 export * from './loyalty';
 export * from './orders';
 export * from './payments';
+export * from './pos';
 export * from './user';
 export { formatZodError, type FieldErrors } from './format';

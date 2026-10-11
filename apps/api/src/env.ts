@@ -62,6 +62,12 @@ const envSchema = z
       .default('true')
       .transform((value) => value === 'true'),
 
+    /**
+     * Encrypts cafes' POS signing secrets at rest. Required in production for
+     * a cafe to connect a POS; development derives one from AUTH_SECRET.
+     */
+    POS_SECRET_KEY: z.string().min(32, 'POS_SECRET_KEY must be at least 32 characters').optional(),
+
     STORAGE_BUCKET: z.string().optional(),
     STORAGE_PUBLIC_URL: z.string().url().optional(),
 

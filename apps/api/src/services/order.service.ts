@@ -38,6 +38,7 @@ import {
 } from './loyalty.service';
 import { evaluateReferralOnOrder } from './referral.service';
 import { getLoyaltyConfig, getPlatformConfig } from './settings.service';
+import { enqueueOrderEvent, flushOrderJobs } from './pos/pos.service';
 import { emitOrderCreated, emitOrderStatusChanged, emitPointsChanged } from '../realtime';
 import { notifyOrderStatus, notifyRewardUnlocked } from './notification.service';
 
@@ -179,11 +180,15 @@ export async function createOrder(context: CreateOrderContext): Promise<OrderDet
       input.paymentMethod as PaymentMethod,
     );
 
-    return tx.order.findUniqueOrThrow({ where: { id: order.id }, ...orderWithRelations });
+    const full = await tx.order.findUniqueOrThrow({ where: { id: order.id }, ...orderWithRelations });
+    // Same transaction: the order and its POS delivery commit together.
+    await enqueueOrderEvent(tx, full);
+    return full;
   });
 
   const summary = toOrderSummary(created);
   emitOrderCreated(summary, userId);
+  void flushOrderJobs(created.id);
 
   return presentOrder(created, { viewerId: userId, now });
 }
@@ -506,8 +511,12 @@ export async function transitionOrder(input: TransitionInput): Promise<OrderDeta
       ...orderWithRelations,
     });
 
+    await enqueueOrderEvent(tx, updated);
+
     return { order: updated, previousStatus: order.status, effects };
   });
+
+  void flushOrderJobs(result.order.id);
 
   // Side channels run after the commit: a failed push must not roll back an order.
   emitOrderStatusChanged(
