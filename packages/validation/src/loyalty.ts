@@ -74,7 +74,8 @@ export const rewardFieldsSchema = z.object({
   discountPercentage: z.number().min(1).max(100).nullish(),
   maxDiscountAmount: paisaSchema.nullish(),
   freeItemMenuItemIds: z.array(idSchema).max(50).default([]),
-  businessId: idSchema.nullish(),
+  /** Every reward belongs to a cafe; merchants never send this (it is the route's cafe). */
+  businessId: idSchema,
   expiresAt: isoDateSchema.nullish(),
   usageLimit: z.number().int().min(1).nullish(),
   isActive: z.boolean().default(true),
@@ -100,6 +101,25 @@ export const rewardSchema = rewardFieldsSchema
   );
 
 export const rewardUpdateSchema = rewardFieldsSchema.partial();
+
+/** A cafe defining its own reward: the cafe comes from the route, not the body. */
+const merchantRewardFieldsSchema = rewardFieldsSchema.omit({ businessId: true });
+
+export const merchantRewardSchema = merchantRewardFieldsSchema
+  .refine(
+    (value) => value.type !== 'FIXED_DISCOUNT' || value.discountAmount != null,
+    { message: 'Set the discount amount', path: ['discountAmount'] },
+  )
+  .refine(
+    (value) => value.type !== 'PERCENTAGE_DISCOUNT' || value.discountPercentage != null,
+    { message: 'Set the discount percentage', path: ['discountPercentage'] },
+  )
+  .refine(
+    (value) => value.type !== 'FREE_ITEM' || value.freeItemMenuItemIds.length > 0,
+    { message: 'Choose which items this reward covers', path: ['freeItemMenuItemIds'] },
+  );
+
+export const merchantRewardUpdateSchema = merchantRewardFieldsSchema.partial();
 
 /* ------------------------------------------------------ admin: promotion CRUD */
 
@@ -155,6 +175,8 @@ export const applyPromoSchema = z.object({
 
 export const adjustPointsSchema = z.object({
   userId: idSchema,
+  /** Points live on per-cafe cards; an adjustment names the card. */
+  businessId: idSchema,
   /** Negative to deduct. Zero is rejected: an adjustment must change something. */
   amount: z
     .number()
@@ -175,4 +197,5 @@ export type LoyaltyConfigInput = z.infer<typeof loyaltyConfigSchema>;
 export type ReferralConfigInput = z.infer<typeof referralConfigSchema>;
 export type PlatformConfigInput = z.infer<typeof platformConfigSchema>;
 export type RewardInput = z.infer<typeof rewardSchema>;
+export type MerchantRewardInput = z.infer<typeof merchantRewardSchema>;
 export type PromotionInput = z.infer<typeof promotionSchema>;

@@ -425,7 +425,10 @@ function RewardsCard({ onToast }: { onToast: (message: string) => void }): React
       <div className="gg-spread" style={{ padding: 'var(--space-base)' }}>
         <div>
           <h3>Rewards</h3>
-          <p className="gg-muted gg-small">What customers can spend Grab Points on.</p>
+          <p className="gg-muted gg-small">
+            Each cafe runs its own rewards, bought with points earned there. Cafes manage these
+            from their dashboard; you can add or switch them off on their behalf.
+          </p>
         </div>
         <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
           New reward
@@ -446,6 +449,7 @@ function RewardsCard({ onToast }: { onToast: (message: string) => void }): React
             <thead>
               <tr>
                 <th>Reward</th>
+                <th>Cafe</th>
                 <th>Points</th>
                 <th>Value</th>
                 <th>Redeemed</th>
@@ -463,6 +467,7 @@ function RewardsCard({ onToast }: { onToast: (message: string) => void }): React
                       <div className="gg-muted gg-small">{reward.description}</div>
                     ) : null}
                   </td>
+                  <td className="gg-small">{reward.businessName}</td>
                   <td>{formatNumber(reward.pointsRequired)}</td>
                   <td className="gg-muted gg-small">
                     {reward.type === 'FIXED_DISCOUNT'
@@ -516,14 +521,23 @@ function RewardDialog({
   onSaved: () => void;
 }): React.JSX.Element {
   const [name, setName] = useState('');
+  const [cafeId, setCafeId] = useState('');
   const [points, setPoints] = useState(100);
   const [type, setType] = useState<'FIXED_DISCOUNT' | 'PERCENTAGE_DISCOUNT'>('FIXED_DISCOUNT');
+
+  const cafes = useQuery({
+    queryKey: ['admin-active-cafes'],
+    queryFn: () => adminApi.businesses({ status: 'ACTIVE' }),
+    enabled: open,
+  });
+  const selectedCafe = cafeId || cafes.data?.items[0]?.id || '';
   const [amount, setAmount] = useState(150);
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
     mutationFn: () =>
       adminApi.createReward({
+        businessId: selectedCafe,
         name: name.trim(),
         pointsRequired: points,
         type,
@@ -551,12 +565,24 @@ function RewardDialog({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button loading={save.isPending} disabled={!name.trim()} onClick={() => save.mutate()}>
+          <Button
+            loading={save.isPending}
+            disabled={!name.trim() || !selectedCafe}
+            onClick={() => save.mutate()}
+          >
             Create
           </Button>
         </>
       }
     >
+      <SelectField
+        label="Cafe"
+        value={selectedCafe}
+        onChange={setCafeId}
+        options={(cafes.data?.items ?? []).map((cafe) => ({ value: cafe.id, label: cafe.name }))}
+        hint="Redeemable only there, with points earned there."
+      />
+
       <TextField label="Name" value={name} onChange={setName} placeholder="Free coffee" autoFocus />
 
       <NumberField label="Points required" value={points} onChange={setPoints} min={1} />

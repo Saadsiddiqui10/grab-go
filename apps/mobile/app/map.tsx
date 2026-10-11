@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Image } from 'expo-image';
 import type { LngLatBounds } from '@maplibre/maplibre-react-native';
 import {
   categoryColors,
@@ -417,7 +418,10 @@ function boundsOf(
   return [west - padLng, south - padLat, east + padLng, north + padLat];
 }
 
-/** A pin in the cafe's drink colour, with its name underneath. */
+/**
+ * A pin with the cafe's logo (or its initials, until it uploads one) ringed in
+ * its drink colour, a small drink badge on the corner, and its name underneath.
+ */
 function CafePin({
   cafe,
   category,
@@ -432,6 +436,7 @@ function CafePin({
   // dark mode; dark-theme colours would sink into the cream map.
   const lightColours = (slug: string): CategoryColorSet =>
     (categoryColors[slug] ?? defaultCategoryColors).light;
+  const [logoFailed, setLogoFailed] = useState(false);
   const maplibre = loadMapLibre();
   if (maplibre === null) return null;
 
@@ -439,6 +444,13 @@ function CafePin({
   const open = cafe.isOpenNow && cafe.acceptingOrders;
   const colours = lightColours(category ?? '');
   const icon = discoveryCategories.find((entry) => entry.slug === category)?.icon ?? 'coffee';
+  const showLogo = Boolean(cafe.logoUrl) && !logoFailed;
+  const initials = cafe.name
+    .split(/\s+/)
+    .filter((word) => /[A-Za-z0-9]/.test(word[0] ?? ''))
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('');
 
   return (
     // The press goes on the Marker: touches inside a native marker view do not
@@ -450,19 +462,54 @@ function CafePin({
         accessibilityLabel={`${cafe.name}, ${cafe.areaName ?? ''}${open ? '' : ', closed'}. Open menu`}
         style={{ alignItems: 'center', opacity: open ? 1 : 0.55 }}
       >
-        <View
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 17,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colours.solid,
-            borderWidth: 2,
-            borderColor: MAP_INK.paper,
-          }}
-        >
-          <AppIcon name={icon} size={16} color={colours.onSolid} />
+        <View style={{ width: 46, height: 46 }}>
+          <View
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: showLogo ? MAP_INK.paper : colours.solid,
+              borderWidth: 3,
+              borderColor: colours.solid,
+            }}
+          >
+            {showLogo ? (
+              <Image
+                source={{ uri: cafe.logoUrl ?? undefined }}
+                style={{ width: 36, height: 36 }}
+                contentFit="cover"
+                onError={() => setLogoFailed(true)}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <Text
+                maxScale={1}
+                style={{ color: colours.onSolid, fontSize: 14, lineHeight: 17, fontWeight: '800' }}
+              >
+                {initials || '?'}
+              </Text>
+            )}
+          </View>
+          <View
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              width: 18,
+              height: 18,
+              borderRadius: 9,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: colours.solid,
+              borderWidth: 1.5,
+              borderColor: MAP_INK.paper,
+            }}
+          >
+            <AppIcon name={icon} size={10} color={colours.onSolid} />
+          </View>
         </View>
         <View
           style={{

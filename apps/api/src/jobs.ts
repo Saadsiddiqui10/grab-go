@@ -65,7 +65,7 @@ export async function expireStalePoints(now = new Date()): Promise<number> {
       expiresAt: { lt: now },
       expiredAt: null,
     },
-    select: { id: true, userId: true, accountId: true, amount: true },
+    select: { id: true, userId: true, accountId: true, businessId: true, amount: true },
     take: 200,
   });
 
@@ -98,6 +98,7 @@ export async function expireStalePoints(now = new Date()): Promise<number> {
         data: {
           accountId: entry.accountId,
           userId: entry.userId,
+          businessId: entry.businessId,
           amount: -amount,
           type: 'EXPIRY',
           description: 'Points expired',

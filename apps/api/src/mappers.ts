@@ -254,6 +254,9 @@ export function toOrderSummary(order: OrderWithRelations): OrderSummary {
     currency: order.currency as 'PKR',
     pickupMode: order.pickupMode,
     pickupAt: order.pickupAt.toISOString(),
+    pickupMethod: order.pickupMethod,
+    vehiclePlate: order.vehiclePlate,
+    vehicleDetails: order.vehicleDetails,
     createdAt: order.createdAt.toISOString(),
   };
 }
@@ -318,6 +321,8 @@ export function toPointsTransaction(row: {
   description: string;
   referenceType: string | null;
   referenceId: string | null;
+  businessId?: string | null;
+  account?: { business: { name: string } } | null;
   balanceAfter: number;
   createdAt: Date;
 }): PointsTransaction {
@@ -328,6 +333,8 @@ export function toPointsTransaction(row: {
     description: row.description,
     referenceType: row.referenceType,
     referenceId: row.referenceId,
+    businessId: row.businessId ?? null,
+    businessName: row.account?.business.name ?? null,
     balanceAfter: row.balanceAfter,
     createdAt: row.createdAt.toISOString(),
   };
@@ -345,10 +352,10 @@ export function toReward(
     discountPercentage: number | null;
     maxDiscountAmount: number | null;
     freeItemMenuItemIds: string[];
-    businessId: string | null;
+    businessId: string;
     expiresAt: Date | null;
     isActive: boolean;
-    business?: { name: string } | null;
+    business: { name: string };
   },
   balance: number,
 ): Reward {
@@ -364,7 +371,7 @@ export function toReward(
     maxDiscountAmount: reward.maxDiscountAmount,
     freeItemName: reward.freeItemMenuItemIds.length > 0 ? reward.name : null,
     businessId: reward.businessId,
-    businessName: reward.business?.name ?? null,
+    businessName: reward.business.name,
     expiresAt: reward.expiresAt?.toISOString() ?? null,
     isActive: reward.isActive,
     isUnlocked: balance >= reward.pointsRequired,
@@ -379,13 +386,15 @@ export function toRedemption(row: {
   code: string;
   expiresAt: Date | null;
   createdAt: Date;
-  reward: { name: string };
+  reward: { name: string; businessId: string; business: { name: string } };
   order?: { id: string } | null;
 }): RewardRedemption {
   return {
     id: row.id,
     rewardId: row.rewardId,
     rewardName: row.reward.name,
+    businessId: row.reward.businessId,
+    businessName: row.reward.business.name,
     status: row.status,
     pointsSpent: row.pointsSpent,
     code: row.code,

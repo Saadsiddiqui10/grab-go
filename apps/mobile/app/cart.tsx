@@ -233,7 +233,7 @@ export default function CartScreen(): React.JSX.Element {
               />
             </View>
           ) : quote.data ? (
-            <TotalsRows totals={quote.data.totals} />
+            <TotalsRows totals={quote.data.totals} businessName={businessName} />
           ) : !isAuthenticated ? (
             <Text variant="footnote" color="textMuted">
               Sign in to see your total and check out.

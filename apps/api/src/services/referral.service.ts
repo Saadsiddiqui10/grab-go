@@ -82,19 +82,9 @@ export async function attachReferralAtSignup(
     data: { referredById: check.value.referrerId },
   });
 
-  // The welcome reward is granted immediately — it costs the platform nothing
-  // until the new customer actually orders, and it is what makes the invite
-  // worth accepting.
-  if (config.refereeSignupPoints > 0) {
-    await applyPointsDelta(tx, {
-      userId: context.refereeId,
-      amount: config.refereeSignupPoints,
-      type: 'REFERRAL_BONUS',
-      description: 'Welcome bonus for joining with a friend’s code',
-      referenceType: 'referral',
-      referenceId: check.value.referrerId,
-    });
-  }
+  // Points live on per-cafe cards, and at sign-up there is no cafe yet, so the
+  // referee's welcome points are granted with their first qualifying order,
+  // on the card of the cafe they ordered from (see evaluateReferralOnOrder).
 
   if (config.refereeRewardId) {
     await issueReferralReward(tx, {
@@ -119,7 +109,7 @@ export async function attachReferralAtSignup(
  */
 export async function evaluateReferralOnOrder(
   tx: Tx,
-  order: { id: string; userId: string; total: number; status: string },
+  order: { id: string; userId: string; businessId: string; total: number; status: string },
 ): Promise<{ qualified: boolean }> {
   const config = await getReferralConfig(tx);
   if (!config.isEnabled) return { qualified: false };
@@ -184,9 +174,24 @@ export async function evaluateReferralOnOrder(
     },
   });
 
+  // Both sides' points go on the card of the cafe the friend ordered from:
+  // loyalty is per cafe, and that is the cafe the referral brought business to.
+  if (config.refereeSignupPoints > 0) {
+    await applyPointsDelta(tx, {
+      userId: referral.refereeId,
+      businessId: order.businessId,
+      amount: config.refereeSignupPoints,
+      type: 'REFERRAL_BONUS',
+      description: 'Welcome bonus for joining with a friend’s code',
+      referenceType: 'referral',
+      referenceId: referral.id,
+    });
+  }
+
   if (outcome.referrerPoints > 0) {
     await applyPointsDelta(tx, {
       userId: referral.referrerId,
+      businessId: order.businessId,
       amount: outcome.referrerPoints,
       type: 'REFERRAL_BONUS',
       description: 'A friend you invited completed their first order',

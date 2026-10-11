@@ -112,6 +112,13 @@ export const PickupMode = {
 } as const;
 export type PickupMode = (typeof PickupMode)[keyof typeof PickupMode];
 
+/** How the customer collects: at the counter, or brought out to their car. */
+export const PickupMethod = {
+  WALK_IN: 'WALK_IN',
+  CURBSIDE: 'CURBSIDE',
+} as const;
+export type PickupMethod = (typeof PickupMethod)[keyof typeof PickupMethod];
+
 export const PaymentStatus = {
   PENDING: 'PENDING',
   AUTHORIZED: 'AUTHORIZED',

@@ -83,7 +83,7 @@ model User {
   favourites          Favourite[]
   partnerRequests     PartnerRequest[]
   savedAddresses      SavedAddress[]
-  pointsAccount       PointsAccount?
+  pointsAccounts      PointsAccount[]
   pointsTransactions  PointsTransaction[]
   rewardRedemptions   RewardRedemption[]
   referralsMade       Referral[]           @relation("Referrer")
@@ -343,6 +343,7 @@ model Business {
   rewards     Reward[]
   promotions  Promotion[]
   partnerRequests PartnerRequest[]
+  pointsAccounts  PointsAccount[]
 
   @@index([cityId, status])
   @@index([areaId])
@@ -534,6 +535,11 @@ enum OrderStatus {
   EXPIRED
 }
 
+enum PickupMethod {
+  WALK_IN
+  CURBSIDE
+}
+
 enum OrderType {
   PICKUP
 }
@@ -573,6 +579,12 @@ model Order {
   type        OrderType   @default(PICKUP)
 
   pickupMode       PickupMode @default(ASAP)
+  /// Walk in to the counter, or have the order brought out to the car.
+  pickupMethod     PickupMethod @default(WALK_IN)
+  /// For CURBSIDE: the number plate staff look for, and an optional
+  /// description ("white Corolla").
+  vehiclePlate     String?
+  vehicleDetails   String?
   pickupAt         DateTime
   estimatedReadyAt DateTime?
   prepTimeMinutes  Int?
@@ -851,9 +863,12 @@ enum PointsTransactionType {
 /// does not sum a lifetime of rows on every render. They are only ever written in
 /// the same transaction as the ledger row that moved them, and a reconciliation
 /// job can rebuild them from the ledger at any time.
+/// One loyalty card per customer per cafe: points earned at a cafe are spent
+/// only on that cafe's rewards.
 model PointsAccount {
   id               String   @id @default(cuid())
-  userId           String   @unique
+  userId           String
+  businessId       String
   balance          Int      @default(0)
   lifetimeEarned   Int      @default(0)
   lifetimeRedeemed Int      @default(0)
@@ -861,8 +876,11 @@ model PointsAccount {
   updatedAt        DateTime @updatedAt
 
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business     Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
   transactions PointsTransaction[]
 
+  @@unique([userId, businessId])
+  @@index([businessId])
   @@map("points_accounts")
 }
 
@@ -870,6 +888,8 @@ model PointsTransaction {
   id            String                @id @default(cuid())
   accountId     String
   userId        String
+  /// The cafe whose card this moved, copied from the account for history.
+  businessId    String?
   /// Signed: positive earns, negative redemptions and reversals.
   amount        Int
   type          PointsTransactionType
@@ -912,8 +932,9 @@ model Reward {
   maxDiscountAmount   Int?
   /// For FREE_ITEM: which menu items this reward covers.
   freeItemMenuItemIds String[] @default([])
-  /// Null means redeemable at any cafe.
-  businessId          String?
+  /// The cafe that offers this reward; it is redeemable only there, with
+  /// points earned there.
+  businessId          String
   expiresAt           DateTime?
   usageLimit          Int?
   usageCount          Int      @default(0)
@@ -922,10 +943,11 @@ model Reward {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  business    Business?          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   redemptions RewardRedemption[]
 
   @@index([isActive, pointsRequired])
+  @@index([businessId, isActive])
   @@map("rewards")
 }
 

@@ -9,6 +9,7 @@
  * Dates are ISO-8601 strings so they survive JSON transport unambiguously.
  */
 import type {
+  PickupMethod,
   AuthProvider,
   BusinessStatus,
   BusinessType,
@@ -372,6 +373,10 @@ export interface OrderSummary {
   currency: CurrencyCode;
   pickupMode: PickupMode;
   pickupAt: ISODateString;
+  pickupMethod: PickupMethod;
+  /** For CURBSIDE: the plate staff look for, and an optional description. */
+  vehiclePlate: string | null;
+  vehicleDetails: string | null;
   createdAt: ISODateString;
 }
 
@@ -416,18 +421,39 @@ export interface PointsTransaction {
   description: string;
   referenceType: string | null;
   referenceId: string | null;
+  /** The cafe whose loyalty card this moved. */
+  businessId: string | null;
+  businessName: string | null;
   balanceAfter: number;
   createdAt: ISODateString;
 }
 
+/** A customer's loyalty card at one cafe. */
+export interface CafePoints {
+  businessId: string;
+  businessName: string;
+  businessLogoUrl: string | null;
+  balance: number;
+  lifetimeEarned: number;
+  lifetimeRedeemed: number;
+  /** That cafe's next reward to work toward, or null when all are unlocked. */
+  nextReward: { rewardId: string; name: string; pointsRequired: number } | null;
+  pointsToNextReward: number | null;
+  progressToNextReward: number;
+  /** How many active rewards the cafe offers. */
+  rewardCount: number;
+}
+
+/**
+ * Points are earned and spent per cafe. The top-level numbers are totals
+ * across every card, for headlines; `cafes` is what can actually be spent,
+ * and where.
+ */
 export interface PointsAccountSummary {
   balance: number;
   lifetimeEarned: number;
   lifetimeRedeemed: number;
-  /** Next reward the user can work toward, or null when all are unlocked. */
-  nextReward: { rewardId: string; name: string; pointsRequired: number } | null;
-  pointsToNextReward: number | null;
-  progressToNextReward: number;
+  cafes: CafePoints[];
 }
 
 export interface Reward {
@@ -441,8 +467,9 @@ export interface Reward {
   discountPercentage: number | null;
   maxDiscountAmount: Paisa | null;
   freeItemName: string | null;
-  businessId: string | null;
-  businessName: string | null;
+  /** The cafe that offers it; redeemable only there, with points earned there. */
+  businessId: string;
+  businessName: string;
   expiresAt: ISODateString | null;
   isActive: boolean;
   /** Derived per-user: whether they have enough points right now. */
@@ -453,6 +480,9 @@ export interface RewardRedemption {
   id: string;
   rewardId: string;
   rewardName: string;
+  /** The cafe the reward belongs to: it can only be spent on an order there. */
+  businessId: string;
+  businessName: string;
   status: RedemptionStatus;
   pointsSpent: number;
   code: string;

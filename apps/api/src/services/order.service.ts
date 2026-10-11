@@ -138,6 +138,7 @@ export async function createOrder(context: CreateOrderContext): Promise<OrderDet
       pickupAt,
       prepMinutes,
       customerNote: input.customerNote ?? null,
+      collection: input.collection,
       quote,
       settlement,
       commissionBasisPoints: business.commissionBasisPoints,
@@ -194,6 +195,10 @@ interface CreateOrderRowInput {
   pickupAt: Date;
   prepMinutes: number;
   customerNote: string | null;
+  /** Walk-in, or curbside with the car's plate (validated by the schema). */
+  collection:
+    | { method: 'WALK_IN' }
+    | { method: 'CURBSIDE'; vehiclePlate: string; vehicleDetails?: string | null };
   quote: Awaited<ReturnType<typeof priceCart>>;
   settlement: ReturnType<typeof computeSettlement>;
   commissionBasisPoints: number;
@@ -228,6 +233,10 @@ async function createOrderRow(
           estimatedReadyAt: input.pickupAt,
           prepTimeMinutes: input.prepMinutes,
           customerNote: input.customerNote,
+          pickupMethod: input.collection.method,
+          vehiclePlate: input.collection.method === 'CURBSIDE' ? input.collection.vehiclePlate : null,
+          vehicleDetails:
+            input.collection.method === 'CURBSIDE' ? (input.collection.vehicleDetails ?? null) : null,
 
           subtotal: quote.totals.subtotal,
           promoDiscount: quote.totals.promoDiscount,
@@ -641,6 +650,7 @@ async function applySideEffects(
     const points = await awardOrderPoints(tx, {
       id: order.id,
       userId: order.userId,
+      businessId: order.businessId,
       orderNumber: order.orderNumber,
       subtotal: order.subtotal,
       discountTotal: order.discountTotal,
@@ -649,7 +659,7 @@ async function applySideEffects(
     if (points > 0) {
       effects.pointsAwarded = points;
       const account = await tx.pointsAccount.findUnique({
-        where: { userId: order.userId },
+        where: { userId_businessId: { userId: order.userId, businessId: order.businessId } },
         select: { balance: true },
       });
       effects.balanceAfter = account?.balance ?? points;
@@ -661,6 +671,7 @@ async function applySideEffects(
     const outcome = await evaluateReferralOnOrder(tx, {
       id: order.id,
       userId: order.userId,
+      businessId: order.businessId,
       total: order.total,
       status: to,
     });

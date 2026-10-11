@@ -37,6 +37,23 @@ export interface MerchantBusiness extends BusinessDetail {
   staffRole: StaffRole;
 }
 
+/** A reward as the cafe that runs it sees it, with its usage so far. */
+export interface CafeReward {
+  id: string;
+  name: string;
+  description: string | null;
+  pointsRequired: number;
+  type: 'FIXED_DISCOUNT' | 'PERCENTAGE_DISCOUNT' | 'FREE_ITEM';
+  discountAmount: number | null;
+  discountPercentage: number | null;
+  maxDiscountAmount: number | null;
+  freeItemMenuItemIds: string[];
+  expiresAt: string | null;
+  usageLimit: number | null;
+  usageCount: number;
+  isActive: boolean;
+}
+
 export const merchantApi = {
   login: (email: string, password: string) =>
     api.post<AuthSession>('/auth/merchant/login', { email, password }),
@@ -127,6 +144,16 @@ export const merchantApi = {
 
   reorderItems: (businessId: string, ids: string[]) =>
     api.post<{ reordered: boolean }>(`/merchant/${businessId}/items/reorder`, { ids }),
+
+  /* -------------------------------------------------------------- rewards */
+
+  rewards: (businessId: string) => api.get<CafeReward[]>(`/merchant/${businessId}/rewards`),
+
+  createReward: (businessId: string, body: Record<string, unknown>) =>
+    api.post<CafeReward>(`/merchant/${businessId}/rewards`, body),
+
+  updateReward: (businessId: string, rewardId: string, body: Record<string, unknown>) =>
+    api.patch<CafeReward>(`/merchant/${businessId}/rewards/${rewardId}`, body),
 
   /* ------------------------------------------------------------- settings */
 

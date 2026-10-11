@@ -559,7 +559,6 @@ export async function ensureOwner(
       role: 'MERCHANT',
       referralCode: `CAFE${randomToken(5).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}`,
       profile: { create: { fullName } },
-      pointsAccount: { create: {} },
     },
     select: { id: true },
   });

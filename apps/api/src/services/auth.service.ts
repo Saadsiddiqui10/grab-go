@@ -228,7 +228,6 @@ async function createUser(tx: Tx, input: CreateUserInput): Promise<string> {
       role: input.role ?? 'CUSTOMER',
       referralCode: await allocateReferralCode(tx, input.fullName),
       profile: { create: { fullName: input.fullName } },
-      pointsAccount: { create: {} },
     },
     select: { id: true },
   });

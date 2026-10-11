@@ -16,7 +16,16 @@ import { StatusBar } from 'expo-status-bar';
 import { formatDistance } from '@grabgo/core';
 import { useTheme } from '../../src/theme';
 import { formatPrepTime } from '../../src/lib/format';
-import { useCafe, useCartQuote, useFavourites, useMenu, useToggleFavourite } from '../../src/api/hooks';
+import {
+  useCafe,
+  useCartQuote,
+  useFavourites,
+  useMenu,
+  usePoints,
+  useRewards,
+  useToggleFavourite,
+} from '../../src/api/hooks';
+import { formatPoints } from '../../src/lib/format';
 import { useCartStore, useCartCount } from '../../src/stores/cart';
 import { Text } from '../../src/components/ui/Text';
 import { Badge, Card, Divider } from '../../src/components/ui/Surface';
@@ -35,6 +44,54 @@ import { useReducedMotion } from '../../src/lib/motion';
  */
 
 const HEADER_HEIGHT = 240;
+
+/**
+ * This cafe's loyalty card in one line: the points held here and the next
+ * reward they buy, or what a first order here starts earning towards. Hidden
+ * when the cafe has set up no rewards.
+ */
+function CafeRewardsStrip({
+  businessId,
+  onPress,
+}: {
+  businessId: string;
+  onPress: () => void;
+}): React.JSX.Element | null {
+  const theme = useTheme();
+  const rewards = useRewards(businessId);
+  const points = usePoints();
+
+  const ladder = [...(rewards.data ?? [])].sort((a, b) => a.pointsRequired - b.pointsRequired);
+  if (ladder.length === 0) return null;
+
+  const balance = points.data?.cafes.find((cafe) => cafe.businessId === businessId)?.balance ?? 0;
+  const next = ladder.find((reward) => reward.pointsRequired > balance);
+  const unlocked = ladder.filter((reward) => reward.pointsRequired <= balance).length;
+
+  const detail =
+    balance === 0
+      ? `Earn points here towards ${ladder[0]?.name} (${formatPoints(ladder[0]?.pointsRequired ?? 0)} pts)`
+      : unlocked > 0
+        ? `${unlocked} ${unlocked === 1 ? 'reward' : 'rewards'} ready to redeem`
+        : `${formatPoints((next?.pointsRequired ?? 0) - balance)} pts until ${next?.name}`;
+
+  return (
+    <Card onPress={onPress} accessibilityLabel={`Rewards here. ${detail}`} style={{ marginTop: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+        <Ionicons name="gift-outline" size={20} color={theme.colors.primary} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="subhead">
+            {balance > 0 ? `${formatPoints(balance)} pts on your card here` : 'Rewards here'}
+          </Text>
+          <Text variant="footnote" color="textMuted">
+            {detail}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+      </View>
+    </Card>
+  );
+}
 
 export default function CafeScreen(): React.JSX.Element {
   const theme = useTheme();
@@ -91,7 +148,8 @@ export default function CafeScreen(): React.JSX.Element {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Stack.Screen options={{ headerShown: false }} />
+      {/* The title is what the next screen's back button says. */}
+      <Stack.Screen options={{ headerShown: false, title: cafe.data?.name ?? 'Menu' }} />
       <StatusBar style="light" />
 
       {/* --------------------------------------------------- floating header */}
@@ -218,6 +276,8 @@ export default function CafeScreen(): React.JSX.Element {
                   {cafe.data.description}
                 </Text>
               ) : null}
+
+              <CafeRewardsStrip businessId={cafe.data.id} onPress={() => router.push('/(tabs)/rewards')} />
 
               {/* A closed cafe stays fully browsable; ordering is what waits. */}
               {!cafe.data.isOpenNow ? (

@@ -9,7 +9,7 @@ import { ScrollScreen, StickyFooter } from '../../src/components/ui/Screen';
 import { Text } from '../../src/components/ui/Text';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Surface';
-import { PickupCodeCard } from '../../src/components/OrderComponents';
+import { CollectionCard, PickupCodeCard } from '../../src/components/OrderComponents';
 import { LoadingState, ErrorState } from '../../src/components/ui/States';
 import { useReducedMotion } from '../../src/lib/motion';
 import { usePushPermission } from '../../src/lib/notifications';
@@ -112,11 +112,14 @@ export default function OrderConfirmedScreen(): React.JSX.Element {
           {data.pickupCode ? (
             <PickupCodeCard
               code={data.pickupCode}
+              curbside={data.pickupMethod === 'CURBSIDE'}
               qrToken={data.pickupQrToken}
               orderNumber={data.orderNumber}
               status={data.status}
             />
           ) : null}
+
+          <CollectionCard order={data} />
 
           <ReadyNotificationCard />
         </View>

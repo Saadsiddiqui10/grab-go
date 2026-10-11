@@ -13,6 +13,7 @@ import { ApiError, Badge, Button, Card, TextField } from '@grabgo/ui';
 import { useDashboard } from './store';
 import { LiveOrdersPage } from './pages/LiveOrders';
 import { MenuPage } from './pages/MenuManager';
+import { RewardsPage } from './pages/Rewards';
 import { SettingsPage } from './pages/Settings';
 
 /**
@@ -85,6 +86,7 @@ function DashboardRoutes(): React.JSX.Element {
               </Suspense>
             }
           />
+          <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/orders" replace />} />
         </Routes>
@@ -135,6 +137,9 @@ function Sidebar(): React.JSX.Element {
         </NavLink>
         <NavLink className="gg-nav-link" to="/menu">
           Menu
+        </NavLink>
+        <NavLink className="gg-nav-link" to="/rewards">
+          Rewards
         </NavLink>
         <NavLink className="gg-nav-link" to="/analytics">
           Analytics

@@ -3,7 +3,7 @@ import { Platform, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
-import type { PaymentMethod, PickupSlot } from '@grabgo/types';
+import type { PaymentMethod, PickupMethod, PickupSlot } from '@grabgo/types';
 import { useTheme } from '../src/theme';
 import { formatClock, formatPKR } from '../src/lib/format';
 import { errorFeedback, selectionFeedback, successFeedback } from '../src/lib/feedback';
@@ -23,8 +23,9 @@ import { ErrorState, LoadingState } from '../src/components/ui/States';
 /**
  * Checkout.
  *
- * Three decisions, in the order they matter: when to collect, how to pay, and
- * whether to spend a reward. Then one button.
+ * Four decisions, in the order they matter: when to collect, how (walk in, or
+ * have it brought out to the car), how to pay, and whether to spend a reward.
+ * Then one button.
  *
  * The idempotency key is generated once per checkout attempt and reused across
  * retries, so a customer who taps "Pay" on a bad connection gets one coffee and
@@ -49,6 +50,10 @@ export default function CheckoutScreen(): React.JSX.Element {
   const [selectedSlot, setSelectedSlot] = useState<PickupSlot | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
   const [note, setNote] = useState('');
+  const [method, setMethod] = useState<PickupMethod>('WALK_IN');
+  const [plate, setPlate] = useState('');
+  const [carDetails, setCarDetails] = useState('');
+  const [plateError, setPlateError] = useState<string | undefined>();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +66,17 @@ export default function CheckoutScreen(): React.JSX.Element {
   );
 
   const effectiveSlot = selectedSlot ?? availableSlots[0] ?? null;
+
+  // A redeemed reward is only good at the cafe that issued it.
+  const usableRedemptions = useMemo(
+    () => (myRewards.data ?? []).filter((redemption) => redemption.businessId === businessId),
+    [myRewards.data, businessId],
+  );
+
+  // Mirrors the server's rule (letters, digits, spaces and dashes; 2–16
+  // characters) so the customer hears about a typo before paying.
+  const normalisedPlate = plate.trim().toUpperCase().replace(/\s+/g, ' ');
+  const plateValid = /^[A-Z0-9][A-Z0-9 -]*[A-Z0-9]$/.test(normalisedPlate) && normalisedPlate.length <= 16;
 
   const paymentOptions: Array<{
     method: PaymentMethod;
@@ -96,6 +112,15 @@ export default function CheckoutScreen(): React.JSX.Element {
 
   const placeOrder = async (): Promise<void> => {
     if (!businessId || !effectiveSlot) return;
+    if (method === 'CURBSIDE' && !plateValid) {
+      errorFeedback();
+      setPlateError(
+        normalisedPlate
+          ? 'Use letters, numbers, spaces or dashes, like KHI-4521.'
+          : 'Add your number plate so the cafe can find your car.',
+      );
+      return;
+    }
 
     setPlacing(true);
     setError(null);
@@ -110,6 +135,10 @@ export default function CheckoutScreen(): React.JSX.Element {
         promoCode,
         redemptionId,
         customerNote: note.trim() || null,
+        collection:
+          method === 'CURBSIDE'
+            ? { method, vehiclePlate: normalisedPlate, vehicleDetails: carDetails.trim() || null }
+            : { method },
         paymentMethod,
         idempotencyKey,
       });
@@ -224,6 +253,89 @@ export default function CheckoutScreen(): React.JSX.Element {
           )}
         </View>
 
+        {/* ---------------------------------------------------- collection */}
+        <View style={{ gap: theme.spacing.md }}>
+          <SectionTitle>How you'll collect</SectionTitle>
+
+          <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+            {(
+              [
+                { value: 'WALK_IN', label: 'Walk in', detail: 'Collect at the counter', icon: 'walk-outline' },
+                { value: 'CURBSIDE', label: 'Bring to my car', detail: 'Brought out to you', icon: 'car-outline' },
+              ] as const
+            ).map((option) => {
+              const selected = method === option.value;
+
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => {
+                    selectionFeedback();
+                    setMethod(option.value);
+                    setPlateError(undefined);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`${option.label}, ${option.detail}`}
+                  style={{
+                    flex: 1,
+                    gap: 6,
+                    padding: theme.spacing.md,
+                    borderRadius: theme.radii.md,
+                    borderWidth: 2,
+                    borderColor: selected ? theme.colors.primary : theme.colors.border,
+                    backgroundColor: selected ? theme.colors.primarySubtle : theme.colors.surface,
+                  }}
+                >
+                  <View style={{ height: 24, justifyContent: 'center' }}>
+                    <Ionicons
+                      name={option.icon}
+                      size={22}
+                      color={selected ? theme.colors.primary : theme.colors.textSecondary}
+                    />
+                  </View>
+                  <Text variant="subhead" color={selected ? 'primary' : 'textPrimary'}>
+                    {option.label}
+                  </Text>
+                  <Text variant="caption" color="textMuted">
+                    {option.detail}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {method === 'CURBSIDE' ? (
+            <View style={{ gap: theme.spacing.md }}>
+              <Input
+                label="Number plate"
+                placeholder="e.g. KHI-4521"
+                value={plate}
+                onChangeText={(text) => {
+                  setPlate(text.toUpperCase());
+                  setPlateError(undefined);
+                }}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={16}
+                icon="car-outline"
+                error={plateError}
+                hint="The cafe uses this to find your car."
+              />
+              <Input
+                label="Car (optional)"
+                placeholder="Colour and model, e.g. white Corolla"
+                value={carDetails}
+                onChangeText={setCarDetails}
+                maxLength={60}
+              />
+              <Text variant="footnote" color="textMuted">
+                Park near {businessName ?? 'the cafe'} when your order is ready and they&apos;ll bring it out.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
         {/* ------------------------------------------------------- payment */}
         <View style={{ gap: theme.spacing.md }}>
           <SectionTitle>Payment</SectionTitle>
@@ -278,11 +390,11 @@ export default function CheckoutScreen(): React.JSX.Element {
         </View>
 
         {/* -------------------------------------------------------- reward */}
-        {myRewards.data && myRewards.data.length > 0 ? (
+        {usableRedemptions.length > 0 ? (
           <View style={{ gap: theme.spacing.md }}>
             <SectionTitle subtitle="Spend a reward on this order">Rewards</SectionTitle>
             <RedemptionPicker
-              redemptions={myRewards.data}
+              redemptions={usableRedemptions}
               selectedId={redemptionId}
               onSelect={setRedemptionId}
             />
@@ -305,7 +417,7 @@ export default function CheckoutScreen(): React.JSX.Element {
           <SectionTitle>Summary</SectionTitle>
           <Card>
             {quote.data ? (
-              <TotalsRows totals={quote.data.totals} />
+              <TotalsRows totals={quote.data.totals} businessName={businessName} />
             ) : (
               <LoadingState label="Pricing…" />
             )}

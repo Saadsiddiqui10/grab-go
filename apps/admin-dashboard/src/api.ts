@@ -49,7 +49,13 @@ export interface AdminUserRow {
 }
 
 export interface AdminUserDetail extends Omit<AdminUserRow, 'pointsBalance'> {
-  points: { balance: number; lifetimeEarned: number; lifetimeRedeemed: number };
+  /** Totals across every cafe card, then each card on its own. */
+  points: {
+    balance: number;
+    lifetimeEarned: number;
+    lifetimeRedeemed: number;
+    cafes: Array<{ businessId: string; businessName: string; balance: number }>;
+  };
   orderCount: number;
   referralCount: number;
   recentOrders: Array<{
@@ -96,6 +102,8 @@ export interface AdminReward {
   type: 'FIXED_DISCOUNT' | 'PERCENTAGE_DISCOUNT' | 'FREE_ITEM';
   discountAmount: number | null;
   discountPercentage: number | null;
+  businessId: string;
+  businessName: string;
   isActive: boolean;
   usageCount: number;
 }
@@ -146,8 +154,14 @@ export const adminApi = {
   restoreUser: (userId: string) =>
     api.post<{ restored: boolean }>(`/admin/users/${userId}/restore`),
 
-  adjustPoints: (userId: string, amount: number, reason: string) =>
-    api.post<{ balance: number | null }>('/admin/points/adjust', { userId, amount, reason }),
+  /** Points live on a per-cafe card, so an adjustment names the cafe. */
+  adjustPoints: (userId: string, businessId: string, amount: number, reason: string) =>
+    api.post<{ balance: number | null }>('/admin/points/adjust', {
+      userId,
+      businessId,
+      amount,
+      reason,
+    }),
 
   /* ----------------------------------------------------------- businesses */
 

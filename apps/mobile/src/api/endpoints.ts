@@ -207,6 +207,9 @@ export const orders = {
     promoCode?: string | null;
     redemptionId?: string | null;
     customerNote?: string | null;
+    collection?:
+      | { method: 'WALK_IN' }
+      | { method: 'CURBSIDE'; vehiclePlate: string; vehicleDetails?: string | null };
     paymentMethod: 'CARD' | 'WALLET' | 'BANK_TRANSFER' | 'APPLE_PAY' | 'GOOGLE_PAY' | 'CASH_ON_PICKUP';
     idempotencyKey: string;
   }) => api.post<OrderDetail>('/orders', body),

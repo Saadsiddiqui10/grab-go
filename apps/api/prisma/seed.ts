@@ -127,15 +127,9 @@ async function main(): Promise<void> {
 
   /* ------------------------------------------------------------- rewards */
 
-  const rewards = await seedRewards();
-
-  // Point the referral programme at real rewards, matching the product brief:
-  // three friends who order earns the referrer a free coffee.
-  await upsertSetting(ConfigKey.REFERRAL, {
-    ...DEFAULT_REFERRAL_CONFIG,
-    referrerRewardId: rewards.freeCoffee,
-    refereeRewardId: rewards.discount150,
-  });
+  // Rewards belong to cafes (seeded with each cafe below), so the referral
+  // programme pays in points on the card of the cafe the friend ordered from.
+  await upsertSetting(ConfigKey.REFERRAL, DEFAULT_REFERRAL_CONFIG);
 
   /* ---------------------------------------------------------- promotions */
 
@@ -285,6 +279,7 @@ async function main(): Promise<void> {
 
   for (const cafe of cafes) {
     await seedCafe(cafe, areas, karachi.id, passwordHash);
+    await seedCafeRewards(cafe.slug);
   }
 
   console.info('\nSeed complete.\n');
@@ -334,48 +329,41 @@ async function upsertUser(input: UpsertUserInput): Promise<{ id: string }> {
       role: input.role,
       referralCode: generateReferralCode(input.fullName, randomBytes),
       profile: { create: { fullName: input.fullName } },
-      pointsAccount: { create: {} },
     },
     select: { id: true },
   });
 }
 
-async function seedRewards(): Promise<{
-  discount150: string;
-  freeCoffee: string;
-  premium: string;
-}> {
-  const discount150 = await upsertReward({
+/**
+ * Each cafe's own loyalty rewards. Cafes manage these from the merchant
+ * dashboard; these are a starting ladder for the demo.
+ */
+async function seedCafeRewards(slug: string): Promise<void> {
+  const business = await prisma.business.findUnique({ where: { slug }, select: { id: true } });
+  if (!business) return;
+
+  await upsertReward({
+    businessId: business.id,
     name: 'Rs. 150 off',
-    description: 'Rs. 150 off any order.',
+    description: 'Rs. 150 off your next order here.',
     pointsRequired: 100,
     type: 'FIXED_DISCOUNT',
     discountAmount: rs(150),
   });
-
-  const freeCoffee = await upsertReward({
-    name: 'Free coffee',
-    description: 'One free coffee, on us.',
+  await upsertReward({
+    businessId: business.id,
+    name: 'Free drink',
+    description: 'Any regular drink on the menu, on us.',
     pointsRequired: 200,
     type: 'PERCENTAGE_DISCOUNT',
     discountPercentage: 100,
-    // Capped so "free coffee" stays a coffee rather than a whole basket.
+    // Capped so "a free drink" stays a drink rather than a whole basket.
     maxDiscountAmount: rs(700),
   });
-
-  const premium = await upsertReward({
-    name: 'Free premium coffee',
-    description: 'Any speciality drink on the menu, free.',
-    pointsRequired: 300,
-    type: 'PERCENTAGE_DISCOUNT',
-    discountPercentage: 100,
-    maxDiscountAmount: rs(1200),
-  });
-
-  return { discount150, freeCoffee, premium };
 }
 
 async function upsertReward(input: {
+  businessId: string;
   name: string;
   description: string;
   pointsRequired: number;
@@ -385,13 +373,14 @@ async function upsertReward(input: {
   maxDiscountAmount?: number;
 }): Promise<string> {
   const existing = await prisma.reward.findFirst({
-    where: { name: input.name },
+    where: { name: input.name, businessId: input.businessId },
     select: { id: true },
   });
   if (existing) return existing.id;
 
   const reward = await prisma.reward.create({
     data: {
+      businessId: input.businessId,
       name: input.name,
       description: input.description,
       pointsRequired: input.pointsRequired,

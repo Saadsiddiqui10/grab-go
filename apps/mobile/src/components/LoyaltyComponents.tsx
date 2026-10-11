@@ -1,6 +1,7 @@
-import { View, StyleSheet } from 'react-native';
+import { Pressable, View, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import type { PointsAccountSummary, ReferralProgress, Reward, RewardRedemption } from '@grabgo/types';
+import type { CafePoints, PointsAccountSummary, ReferralProgress, Reward, RewardRedemption } from '@grabgo/types';
 import { useTheme } from '../theme';
 import { formatPKR, formatPoints, formatShortDate } from '../lib/format';
 import { Text } from './ui/Text';
@@ -16,6 +17,11 @@ import { FigmaIcon } from '../design/assets';
  * balance on its own.
  */
 
+/**
+ * Points are earned and spent per cafe, so the headline is the total across
+ * every card and how many cafes it is spread over; each cafe's own card says
+ * how close it is to that cafe's next reward.
+ */
 export function PointsCard({
   summary,
   onViewRewards,
@@ -24,15 +30,17 @@ export function PointsCard({
   onViewRewards?: () => void;
 }): React.JSX.Element {
   const theme = useTheme();
-  const hasNext = summary.nextReward !== null;
-  const goal = summary.nextReward?.pointsRequired ?? 0;
   const muted = theme.colors.onBrandMuted;
+  const cafes = summary.cafes.length;
+  const closest = summary.cafes
+    .filter((cafe) => cafe.nextReward && cafe.pointsToNextReward !== null)
+    .sort((a, b) => (a.pointsToNextReward ?? 0) - (b.pointsToNextReward ?? 0))[0];
 
   return (
     <View style={{ backgroundColor: theme.colors.brand, borderRadius: 24, padding: 20, gap: 16 }}>
       <View style={{ gap: 6 }}>
         <Text style={{ color: muted, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 }} maxScale={1.4}>
-          YOUR GRAB POINTS
+          YOUR POINTS
         </Text>
         <View style={styles.spreadEnd}>
           <Text
@@ -40,41 +48,126 @@ export function PointsCard({
             style={{ color: theme.colors.onBrand, fontSize: 32, lineHeight: 36, fontWeight: '700' }}
           >
             {formatPoints(summary.balance)}
-            {hasNext ? ` / ${formatPoints(goal)}` : ''}
           </Text>
-          {hasNext ? (
-            <Text
-              style={{ color: muted, fontSize: 13, fontWeight: '700', flexShrink: 1, textAlign: 'right' }}
-              maxScale={1.4}
-            >
-              {summary.pointsToNextReward} pts until {summary.nextReward?.name}
-            </Text>
-          ) : null}
+          <Text
+            style={{ color: muted, fontSize: 13, fontWeight: '700', flexShrink: 1, textAlign: 'right' }}
+            maxScale={1.4}
+          >
+            {cafes === 0 ? 'No cafe cards yet' : `Across ${cafes} ${cafes === 1 ? 'cafe' : 'cafes'}`}
+          </Text>
         </View>
       </View>
 
-      {hasNext ? (
-        <View style={{ gap: 8 }}>
-          <View style={styles.spread}>
-            <Text style={{ color: muted, fontSize: 13 }}>0 pts</Text>
-            <Text style={{ color: muted, fontSize: 13 }}>{formatPoints(goal)} pts</Text>
-          </View>
-          <ProgressBar
-            progress={summary.progressToNextReward}
-            label={`${summary.pointsToNextReward ?? 0} points to your next reward`}
-            trackColor={theme.isDark ? theme.colors.surfaceMuted : '#F0ECE7'}
-            fillColor={theme.isDark ? theme.colors.primary : '#FFFFFF'}
-          />
-        </View>
-      ) : (
-        <Text variant="footnote" style={{ color: muted }}>
-          Every reward unlocked. Keep ordering to earn more.
-        </Text>
-      )}
+      <Text variant="footnote" style={{ color: muted }}>
+        {cafes === 0
+          ? 'Every cafe runs its own rewards. Order anywhere to start a card there.'
+          : closest
+            ? `Closest: ${formatPoints(closest.pointsToNextReward ?? 0)} pts until ${closest.nextReward?.name} at ${closest.businessName}.`
+            : 'Points are spent at the cafe that gave them.'}
+      </Text>
 
       {onViewRewards ? (
         <Button label="View rewards" variant="secondary" size="sm" icon="gift-outline" onPress={onViewRewards} />
       ) : null}
+    </View>
+  );
+}
+
+/** One cafe's loyalty card: its balance and the gap to its next reward. */
+export function CafePointsCard({
+  cafe,
+  onPress,
+}: {
+  cafe: CafePoints;
+  onPress?: () => void;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const muted = theme.colors.onBrandMuted;
+  const hasNext = cafe.nextReward !== null;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={`${cafe.businessName}, ${cafe.balance} points`}
+      style={{ backgroundColor: theme.colors.brand, borderRadius: 20, padding: 16, gap: 12 }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <CafeLogo name={cafe.businessName} uri={cafe.businessLogoUrl} size={40} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ color: theme.colors.onBrand, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>
+            {cafe.businessName}
+          </Text>
+          <Text style={{ color: muted, fontSize: 13 }} maxScale={1.4}>
+            {hasNext
+              ? `${formatPoints(cafe.pointsToNextReward ?? 0)} pts until ${cafe.nextReward?.name}`
+              : cafe.rewardCount > 0
+                ? 'Every reward here unlocked'
+                : 'No rewards set up here yet'}
+          </Text>
+        </View>
+        <Text style={{ color: theme.colors.onBrand, fontSize: 24, fontWeight: '700' }} maxScale={1.4}>
+          {formatPoints(cafe.balance)}
+        </Text>
+      </View>
+
+      {hasNext ? (
+        <ProgressBar
+          progress={cafe.progressToNextReward}
+          label={`${cafe.pointsToNextReward ?? 0} points to the next reward at ${cafe.businessName}`}
+          trackColor={theme.isDark ? theme.colors.surfaceMuted : '#F0ECE7'}
+          fillColor={theme.isDark ? theme.colors.primary : '#FFFFFF'}
+          height={6}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+/** A cafe's logo, or its initials on a tile when it has none. */
+export function CafeLogo({
+  name,
+  uri,
+  size,
+}: {
+  name: string;
+  uri: string | null;
+  size: number;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const initials = name
+    .split(/\s+/)
+    .filter((word) => /[A-Za-z0-9]/.test(word[0] ?? ''))
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join('');
+
+  if (uri) {
+    return (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 4, backgroundColor: '#FFFFFF' }}
+        contentFit="cover"
+        accessibilityIgnoresInvertColors
+      />
+    );
+  }
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.accent,
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: size * 0.38, fontWeight: '700' }} maxScale={1}>
+        {initials || '?'}
+      </Text>
     </View>
   );
 }
@@ -88,11 +181,14 @@ export function RewardCard({
   balance,
   onRedeem,
   redeeming,
+  hideCafe,
 }: {
   reward: Reward;
   balance: number;
   onRedeem: () => void;
   redeeming?: boolean;
+  /** Inside a cafe's own group the "Only at" line repeats the heading. */
+  hideCafe?: boolean;
 }): React.JSX.Element {
   const theme = useTheme();
   const shortfall = Math.max(0, reward.pointsRequired - balance);
@@ -108,7 +204,7 @@ export function RewardCard({
           {reward.description ? (
             <Text style={{ color: ink, fontSize: 13, lineHeight: 18 }}>{reward.description}</Text>
           ) : null}
-          {reward.businessName ? (
+          {reward.businessName && !hideCafe ? (
             <Text style={{ color: ink, fontSize: 12, opacity: 0.8 }}>Only at {reward.businessName}</Text>
           ) : null}
         </View>
@@ -173,7 +269,7 @@ export function RedemptionCard({
         </View>
 
         <Text variant="footnote" color="textMuted">
-          Apply this at checkout. Code {redemption.code}
+          Apply this at checkout at {redemption.businessName}. Code {redemption.code}
           {redemption.expiresAt
             ? ` · expires ${formatShortDate(new Date(redemption.expiresAt))}`
             : ''}
@@ -269,10 +365,12 @@ export function PointsRow({
   amount,
   description,
   createdAt,
+  businessName,
 }: {
   amount: number;
   description: string;
   createdAt: string;
+  businessName?: string | null;
 }): React.JSX.Element {
   const theme = useTheme();
   const positive = amount > 0;
@@ -284,6 +382,7 @@ export function PointsRow({
           {description}
         </Text>
         <Text variant="caption" color="textMuted">
+          {businessName ? `${businessName} · ` : ''}
           {formatShortDate(new Date(createdAt))}
         </Text>
       </View>

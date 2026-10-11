@@ -156,6 +156,7 @@ function UserDialog({
 }): React.JSX.Element {
   const [reason, setReason] = useState('');
   const [pointsDelta, setPointsDelta] = useState(0);
+  const [cafeId, setCafeId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const detail = useQuery({
@@ -163,6 +164,24 @@ function UserDialog({
     queryFn: () => adminApi.user(user?.id ?? ''),
     enabled: user !== null,
   });
+
+  // Any live cafe can be credited (goodwill at a cafe they have not ordered
+  // from yet); the customer's own cards are listed first.
+  const cafes = useQuery({
+    queryKey: ['admin-active-cafes'],
+    queryFn: () => adminApi.businesses({ status: 'ACTIVE' }),
+    enabled: user !== null,
+  });
+  const cafeOptions = [
+    ...(detail.data?.points.cafes ?? []).map((card) => ({
+      value: card.businessId,
+      label: `${card.businessName} (${formatNumber(card.balance)} pts)`,
+    })),
+    ...(cafes.data?.items ?? [])
+      .filter((cafe) => !detail.data?.points.cafes.some((card) => card.businessId === cafe.id))
+      .map((cafe) => ({ value: cafe.id, label: cafe.name })),
+  ];
+  const selectedCafe = cafeId || cafeOptions[0]?.value || '';
 
   const suspend = useMutation({
     mutationFn: () => adminApi.suspendUser(user?.id ?? '', reason),
@@ -183,7 +202,8 @@ function UserDialog({
   });
 
   const adjust = useMutation({
-    mutationFn: () => adminApi.adjustPoints(user?.id ?? '', pointsDelta, reason || 'Manual adjustment'),
+    mutationFn: () =>
+      adminApi.adjustPoints(user?.id ?? '', selectedCafe, pointsDelta, reason || 'Manual adjustment'),
     onSuccess: () => {
       onChanged('Points adjusted. The ledger records who did it and why.');
       setPointsDelta(0);
@@ -207,6 +227,18 @@ function UserDialog({
                 {formatNumber(detail.data.points.lifetimeEarned)} earned ·{' '}
                 {formatNumber(detail.data.points.lifetimeRedeemed)} redeemed
               </div>
+              {detail.data.points.cafes.length > 0 ? (
+                <div className="gg-stack gg-small" style={{ marginTop: 6, gap: 2 }}>
+                  {detail.data.points.cafes.map((card) => (
+                    <div key={card.businessId} className="gg-spread">
+                      <span className="gg-muted">{card.businessName}</span>
+                      <span>{formatNumber(card.balance)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="gg-muted gg-small">No cafe cards yet.</div>
+              )}
             </div>
 
             <div>
@@ -248,6 +280,14 @@ function UserDialog({
             rows={2}
           />
 
+          <SelectField
+            label="Cafe card to adjust"
+            value={selectedCafe}
+            onChange={setCafeId}
+            options={cafeOptions}
+            hint="Points are earned and spent per cafe."
+          />
+
           <div className="gg-row" style={{ alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <NumberField
@@ -261,7 +301,7 @@ function UserDialog({
             </div>
             <Button
               variant="secondary"
-              disabled={pointsDelta === 0 || reason.trim().length === 0}
+              disabled={pointsDelta === 0 || reason.trim().length === 0 || !selectedCafe}
               loading={adjust.isPending}
               onClick={() => adjust.mutate()}
             >

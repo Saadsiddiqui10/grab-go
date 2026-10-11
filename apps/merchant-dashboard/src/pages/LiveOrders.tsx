@@ -316,6 +316,41 @@ function BoardColumn({
               <WaitTimer order={order} />
             </div>
 
+            {/* Curbside: the plate is how the runner finds the car, so it sits
+                right under the order number, big enough to read across a bar. */}
+            {order.pickupMethod === 'CURBSIDE' ? (
+              <div
+                className="gg-row"
+                style={{
+                  gap: 8,
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-info-muted, #e8f0fe)',
+                }}
+                aria-label={`Bring to car, plate ${order.vehiclePlate ?? 'not given'}`}
+              >
+                <span aria-hidden>🚗</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="gg-overline">Bring to car</div>
+                  {order.vehicleDetails ? (
+                    <div className="gg-small gg-muted">{order.vehicleDetails}</div>
+                  ) : null}
+                </div>
+                <strong
+                  style={{
+                    fontSize: 16,
+                    letterSpacing: 1,
+                    padding: '2px 8px',
+                    border: '2px solid currentColor',
+                    borderRadius: 6,
+                    background: 'var(--color-surface, #fff)',
+                  }}
+                >
+                  {order.vehiclePlate}
+                </strong>
+              </div>
+            ) : null}
+
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} className="gg-stack">
               {order.items.map((item) => (
                 <li key={item.id}>

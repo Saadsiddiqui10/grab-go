@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  merchantRewardSchema,
+  merchantRewardUpdateSchema,
   analyticsRangeSchema,
   createMenuItemSchema,
   holidaySchema,
@@ -51,6 +53,7 @@ import {
 } from '../services/order.service';
 import { getMerchantAnalytics, resolveRange } from '../services/analytics.service';
 import { AuditAction, recordAudit } from '../services/audit.service';
+import { createCafeReward, listCafeRewards, updateCafeReward } from '../services/loyalty.service';
 import { emitBusinessAvailability } from '../realtime';
 import { toBusinessDetail } from '../mappers';
 
@@ -289,6 +292,46 @@ export async function registerMerchantRoutes(app: FastifyInstance): Promise<void
   });
 
   /* ----------------------------------------------------------------- menu */
+
+  /* ------------------------------------------------------------- rewards */
+
+  /** The cafe's own loyalty rewards, active and retired. */
+  app.get('/merchant/:businessId/rewards', async (request) => {
+    const { businessId } = request.params as { businessId: string };
+    await requireStaffOf(request, businessId);
+    return success(await listCafeRewards(prisma, businessId));
+  });
+
+  app.post('/merchant/:businessId/rewards', async (request, reply) => {
+    const { businessId } = request.params as { businessId: string };
+    const principal = await requireStaffOf(request, businessId);
+    const body = parse(merchantRewardSchema, request.body);
+    const reward = await createCafeReward(businessId, body);
+    await recordAudit(prisma, {
+      actorUserId: principal.userId,
+      action: AuditAction.REWARD_CREATED,
+      targetType: 'reward',
+      targetId: reward.id,
+      newValue: { businessId, name: reward.name, pointsRequired: reward.pointsRequired },
+    });
+    return reply.code(201).send(success(reward));
+  });
+
+  /** Edit or retire a reward (`isActive: false`). Rewards are never deleted: issued codes reference them. */
+  app.patch('/merchant/:businessId/rewards/:rewardId', async (request) => {
+    const { businessId, rewardId } = request.params as { businessId: string; rewardId: string };
+    const principal = await requireStaffOf(request, businessId);
+    const body = parse(merchantRewardUpdateSchema, request.body);
+    const reward = await updateCafeReward(businessId, rewardId, body);
+    await recordAudit(prisma, {
+      actorUserId: principal.userId,
+      action: AuditAction.REWARD_UPDATED,
+      targetType: 'reward',
+      targetId: reward.id,
+      newValue: body,
+    });
+    return success(reward);
+  });
 
   app.get('/merchant/:businessId/menu', async (request) => {
     const { businessId } = request.params as { businessId: string };
@@ -602,7 +645,6 @@ export async function registerMerchantRoutes(app: FastifyInstance): Promise<void
             role: 'MERCHANT',
             referralCode: `STAFF${randomToken(5).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5)}`,
             profile: { create: { fullName: body.fullName } },
-            pointsAccount: { create: {} },
           },
           select: { id: true },
         });

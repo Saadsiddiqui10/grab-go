@@ -113,26 +113,26 @@ function ProfileScreen(): React.JSX.Element {
       {/* The redesign's espresso points card. */}
       <Card
         onPress={() => router.push('/profile/points')}
-        accessibilityLabel="Grab Points"
+        accessibilityLabel="Your points"
         elevation="none"
         surfaceStyle={{ backgroundColor: theme.colors.brand, borderRadius: 16, borderWidth: 0 }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
             <Text variant="overline" style={{ color: theme.colors.onBrandMuted }}>
-              GRAB POINTS
+              YOUR POINTS
             </Text>
             <Text variant="title2" style={{ color: theme.colors.onBrand }}>
               {formatPoints(points.data?.balance ?? 0)}
             </Text>
           </View>
-          {points.data?.pointsToNextReward ? (
+          {points.data && points.data.cafes.length > 0 ? (
             <Text
               variant="footnote"
               style={{ maxWidth: 160, color: theme.colors.onBrandMuted }}
               align="right"
             >
-              {points.data.pointsToNextReward} points until your next reward
+              Across {points.data.cafes.length} cafe {points.data.cafes.length === 1 ? 'card' : 'cards'}
             </Text>
           ) : null}
         </View>

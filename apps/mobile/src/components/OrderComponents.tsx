@@ -16,6 +16,74 @@ import { Card, Divider, StatusBadge } from './ui/Surface';
  * for cafes that scan rather than type.
  */
 
+/* ---------------------------------------------------------------- collection */
+
+/**
+ * How the order is collected. For curbside it repeats the plate the cafe will
+ * look for, so the customer can spot a typo before they park.
+ */
+export function CollectionCard({
+  order,
+}: {
+  order: Pick<OrderDetail, 'pickupMethod' | 'vehiclePlate' | 'vehicleDetails' | 'status'>;
+}): React.JSX.Element {
+  const theme = useTheme();
+  const curbside = order.pickupMethod === 'CURBSIDE';
+
+  return (
+    <Card>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: theme.radii.md,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.primarySubtle,
+          }}
+        >
+          <Ionicons name={curbside ? 'car-outline' : 'walk-outline'} size={22} color={theme.colors.primary} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="bodyStrong">{curbside ? 'Brought to your car' : 'Walk in and collect'}</Text>
+          <Text variant="footnote" color="textMuted">
+            {curbside
+              ? order.status === 'READY'
+                ? 'Park outside — the cafe is bringing it out.'
+                : 'Park outside when it’s ready and the cafe will bring it out.'
+              : 'Show your pickup code at the counter.'}
+          </Text>
+        </View>
+        {curbside && order.vehiclePlate ? (
+          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <View
+              style={{
+                borderWidth: 2,
+                borderColor: theme.colors.textPrimary,
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                backgroundColor: theme.colors.surface,
+              }}
+              accessibilityLabel={`Number plate ${order.vehiclePlate.split('').join(' ')}`}
+            >
+              <Text variant="subhead" style={{ letterSpacing: 1 }} maxScale={1.4}>
+                {order.vehiclePlate}
+              </Text>
+            </View>
+            {order.vehicleDetails ? (
+              <Text variant="caption" color="textMuted" numberOfLines={1} style={{ maxWidth: 120 }}>
+                {order.vehicleDetails}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
 /* --------------------------------------------------------------- pickup code */
 
 export function PickupCodeCard({
@@ -23,11 +91,14 @@ export function PickupCodeCard({
   qrToken,
   orderNumber,
   status,
+  curbside,
 }: {
   code: string;
   qrToken: string | null;
   orderNumber: string;
   status: OrderStatus;
+  /** Brought to the car: the code is shown to whoever brings it out. */
+  curbside?: boolean;
 }): React.JSX.Element {
   const theme = useTheme();
   const isReady = status === 'READY';
@@ -81,7 +152,7 @@ export function PickupCodeCard({
             opacity: isReady ? 0.9 : 1,
           }}
         >
-          Show this at the counter for order {orderNumber}
+          {curbside ? 'Show this to the staff member who brings out' : 'Show this at the counter for'} order {orderNumber}
         </Text>
       </View>
     </Card>
@@ -215,7 +286,7 @@ export function OrderItemsCard({ order }: { order: OrderDetail }): React.JSX.Ele
 
         <Divider />
 
-        <TotalsRows totals={order.totals} />
+        <TotalsRows totals={order.totals} businessName={order.businessName} />
       </View>
     </Card>
   );
@@ -223,8 +294,11 @@ export function OrderItemsCard({ order }: { order: OrderDetail }): React.JSX.Ele
 
 export function TotalsRows({
   totals,
+  businessName,
 }: {
   totals: OrderDetail['totals'];
+  /** Points go on this cafe's card, so the earn line names it. */
+  businessName?: string | null;
 }): React.JSX.Element {
   const theme = useTheme();
 
@@ -256,7 +330,7 @@ export function TotalsRows({
       {row('Total', formatPKR(totals.total), true)}
       {totals.pointsEarnable > 0 ? (
         <Text variant="caption" color="success">
-          Earns {totals.pointsEarnable} Grab Points
+          Earns {totals.pointsEarnable} points{businessName ? ` on your ${businessName} card` : ''}
         </Text>
       ) : null}
     </View>

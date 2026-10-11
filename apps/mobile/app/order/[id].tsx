@@ -14,6 +14,7 @@ import { Button } from '../../src/components/ui/Button';
 import {
   OrderItemsCard,
   OrderTimeline,
+  CollectionCard,
   PickupCodeCard,
 } from '../../src/components/OrderComponents';
 import { ErrorState, LoadingState } from '../../src/components/ui/States';
@@ -112,7 +113,9 @@ export default function OrderScreen(): React.JSX.Element {
               <Ionicons name="time-outline" size={15} color={theme.colors.primary} />
               <Text variant="subhead" color="primary">
                 {data.status === 'READY'
-                  ? 'Ready now — collect at the counter'
+                  ? data.pickupMethod === 'CURBSIDE'
+                    ? 'Ready now — being brought to your car'
+                    : 'Ready now — collect at the counter'
                   : `Pickup ${formatRelativeTime(data.pickupAt)} (${formatClock(new Date(data.pickupAt))})`}
               </Text>
             </View>
@@ -124,11 +127,14 @@ export default function OrderScreen(): React.JSX.Element {
       {data.pickupCode && isActive ? (
         <PickupCodeCard
           code={data.pickupCode}
+          curbside={data.pickupMethod === 'CURBSIDE'}
           qrToken={data.pickupQrToken}
           orderNumber={data.orderNumber}
           status={data.status}
         />
       ) : null}
+
+      {isActive ? <CollectionCard order={data} /> : null}
 
       {/* -------------------------------------------------------- timeline */}
       <OrderTimeline order={data} />
@@ -142,7 +148,7 @@ export default function OrderScreen(): React.JSX.Element {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
             <Ionicons name="sparkles" size={20} color={theme.colors.success} />
             <Text variant="subhead" color="success" style={{ flex: 1 }}>
-              You earned {data.pointsEarned} Grab Points on this order
+              You earned {data.pointsEarned} points on your {data.businessName} card
             </Text>
           </View>
         </Card>

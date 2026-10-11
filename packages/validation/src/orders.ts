@@ -38,10 +38,37 @@ export const pickupSelectionSchema = z
     path: ['pickupAt'],
   });
 
+/**
+ * A number plate as people type it: letters, digits, spaces and dashes
+ * ("ABC-123", "KHI 4521"). Normalised to upper case. Pakistani plates vary by
+ * province and era, so the shape is checked loosely rather than per format.
+ */
+export const vehiclePlateSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .min(2, 'Enter your number plate')
+  .max(16, 'That plate looks too long')
+  .regex(/^[A-Z0-9][A-Z0-9 -]*[A-Z0-9]$/, 'Use letters, numbers, spaces or dashes');
+
+/** Walk in to the counter, or have the order brought to the car. */
+export const pickupMethodSchema = z
+  .discriminatedUnion('method', [
+    z.object({ method: z.literal('WALK_IN') }),
+    z.object({
+      method: z.literal('CURBSIDE'),
+      vehiclePlate: vehiclePlateSchema,
+      /** Optional: "white Corolla", so staff spot it faster. */
+      vehicleDetails: z.string().trim().max(60).nullish(),
+    }),
+  ])
+  .default({ method: 'WALK_IN' });
+
 export const createOrderSchema = z.object({
   businessId: idSchema,
   lines: z.array(cartLineSchema).min(1, 'Your cart is empty').max(50),
   pickup: pickupSelectionSchema,
+  collection: pickupMethodSchema,
   promoCode: z.string().trim().max(32).nullish(),
   redemptionId: idSchema.nullish(),
   customerNote: shortTextSchema.nullish(),

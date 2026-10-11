@@ -23,7 +23,7 @@ import { ConfigKey } from '@grabgo/types';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { parse } from '../lib/validate';
-import { notFound, success } from '../lib/http-error';
+import { HttpError, notFound, success } from '../lib/http-error';
 import { clientIp, requireAdmin, userAgent } from '../lib/auth-context';
 import { AuditAction, diffFields, recordAudit } from '../services/audit.service';
 import {
@@ -35,7 +35,7 @@ import {
 import { getAdminAnalytics, resolveRange } from '../services/analytics.service';
 import { ensureOwner } from '../services/business.service';
 import { assertListingReadyForApproval } from './listings.routes';
-import { applyPointsDelta } from '../services/loyalty.service';
+import { applyPointsDelta, createCafeReward, updateCafeReward } from '../services/loyalty.service';
 import { transitionOrder } from '../services/order.service';
 import { refundOrder } from '../services/payments';
 import { randomToken } from '../lib/crypto';
@@ -71,7 +71,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
 
     const rows = await prisma.user.findMany({
       where,
-      include: { profile: true, pointsAccount: { select: { balance: true } } },
+      include: { profile: true, pointsAccounts: { select: { balance: true } } },
       orderBy: { createdAt: 'desc' },
       take: query.limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -89,7 +89,8 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
         role: user.role,
         status: user.status,
         referralCode: user.referralCode,
-        pointsBalance: user.pointsAccount?.balance ?? 0,
+        // Points live on per-cafe cards; this is the total across them.
+        pointsBalance: user.pointsAccounts.reduce((sum, card) => sum + card.balance, 0),
         createdAt: user.createdAt.toISOString(),
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       })),
@@ -105,7 +106,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       where: { id: userId },
       include: {
         profile: true,
-        pointsAccount: true,
+        pointsAccounts: { include: { business: { select: { name: true } } } },
         referralsMade: { select: { id: true, status: true } },
         _count: { select: { orders: true } },
       },
@@ -136,9 +137,14 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       status: user.status,
       referralCode: user.referralCode,
       points: {
-        balance: user.pointsAccount?.balance ?? 0,
-        lifetimeEarned: user.pointsAccount?.lifetimeEarned ?? 0,
-        lifetimeRedeemed: user.pointsAccount?.lifetimeRedeemed ?? 0,
+        balance: user.pointsAccounts.reduce((sum, card) => sum + card.balance, 0),
+        lifetimeEarned: user.pointsAccounts.reduce((sum, card) => sum + card.lifetimeEarned, 0),
+        lifetimeRedeemed: user.pointsAccounts.reduce((sum, card) => sum + card.lifetimeRedeemed, 0),
+        cafes: user.pointsAccounts.map((card) => ({
+          businessId: card.businessId,
+          businessName: card.business.name,
+          balance: card.balance,
+        })),
       },
       orderCount: user._count.orders,
       referralCount: user.referralsMade.length,
@@ -621,6 +627,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     const result = await prisma.$transaction((tx) =>
       applyPointsDelta(tx, {
         userId: body.userId,
+        businessId: body.businessId,
         amount: body.amount,
         type: 'ADMIN_ADJUSTMENT',
         description: body.reason,
@@ -634,7 +641,7 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       action: AuditAction.POINTS_ADJUSTED,
       targetType: 'user',
       targetId: body.userId,
-      newValue: { amount: body.amount, reason: body.reason },
+      newValue: { businessId: body.businessId, amount: body.amount, reason: body.reason },
     });
 
     return success({ balance: result?.balanceAfter ?? null });
@@ -644,31 +651,30 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/admin/rewards', async (request) => {
     await requireAdmin(request);
-    const rewards = await prisma.reward.findMany({ orderBy: { pointsRequired: 'asc' } });
-    return success(rewards);
+    const rewards = await prisma.reward.findMany({
+      include: { business: { select: { name: true } } },
+      orderBy: [{ business: { name: 'asc' } }, { pointsRequired: 'asc' }],
+    });
+    return success(
+      rewards.map(({ business, ...reward }) => ({ ...reward, businessName: business.name })),
+    );
   });
 
+  // Every reward belongs to a cafe, so admin edits go through the same service
+  // as the cafe's own: free items must come from that cafe's menu, and the
+  // cross-field rules are re-checked on update.
   app.post('/admin/rewards', async (request, reply) => {
     const principal = await requireAdmin(request);
     const body = parse(rewardSchema, request.body);
 
-    const reward = await prisma.reward.create({
-      data: {
-        name: body.name,
-        description: body.description ?? null,
-        imageUrl: body.imageUrl ?? null,
-        pointsRequired: body.pointsRequired,
-        type: body.type,
-        discountAmount: body.discountAmount ?? null,
-        discountPercentage: body.discountPercentage ?? null,
-        maxDiscountAmount: body.maxDiscountAmount ?? null,
-        freeItemMenuItemIds: body.freeItemMenuItemIds,
-        businessId: body.businessId ?? null,
-        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
-        usageLimit: body.usageLimit ?? null,
-        isActive: body.isActive,
-      },
+    const business = await prisma.business.findFirst({
+      where: { id: body.businessId, deletedAt: null },
+      select: { id: true },
     });
+    if (!business) throw notFound('That cafe');
+
+    const { businessId, ...fields } = body;
+    const reward = await createCafeReward(businessId, fields);
 
     await recordAudit(prisma, {
       actorUserId: principal.userId,
@@ -689,32 +695,14 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
     const before = await prisma.reward.findUnique({ where: { id: rewardId } });
     if (!before) throw notFound('That reward');
 
-    const reward = await prisma.reward.update({
-      where: { id: rewardId },
-      data: {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.description !== undefined ? { description: body.description } : {}),
-        ...(body.imageUrl !== undefined ? { imageUrl: body.imageUrl } : {}),
-        ...(body.pointsRequired !== undefined ? { pointsRequired: body.pointsRequired } : {}),
-        ...(body.type !== undefined ? { type: body.type } : {}),
-        ...(body.discountAmount !== undefined ? { discountAmount: body.discountAmount } : {}),
-        ...(body.discountPercentage !== undefined
-          ? { discountPercentage: body.discountPercentage }
-          : {}),
-        ...(body.maxDiscountAmount !== undefined
-          ? { maxDiscountAmount: body.maxDiscountAmount }
-          : {}),
-        ...(body.freeItemMenuItemIds !== undefined
-          ? { freeItemMenuItemIds: body.freeItemMenuItemIds }
-          : {}),
-        ...(body.businessId !== undefined ? { businessId: body.businessId } : {}),
-        ...(body.expiresAt !== undefined
-          ? { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null }
-          : {}),
-        ...(body.usageLimit !== undefined ? { usageLimit: body.usageLimit } : {}),
-        ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
-      },
-    });
+    // Points are spent where they were earned, so a reward cannot move cafes:
+    // codes already issued against it would start discounting somewhere else.
+    if (body.businessId !== undefined && body.businessId !== before.businessId) {
+      throw new HttpError('VALIDATION_ERROR', 'A reward cannot be moved to another cafe.');
+    }
+
+    const { businessId: _ignored, ...fields } = body;
+    const reward = await updateCafeReward(before.businessId, rewardId, fields);
 
     await recordAudit(prisma, {
       actorUserId: principal.userId,

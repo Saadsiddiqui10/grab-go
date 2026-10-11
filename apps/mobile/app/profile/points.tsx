@@ -3,7 +3,7 @@ import { useTheme } from '../../src/theme';
 import { usePoints, usePointsHistory } from '../../src/api/hooks';
 import { Text } from '../../src/components/ui/Text';
 import { Card, Divider } from '../../src/components/ui/Surface';
-import { PointsCard, PointsRow } from '../../src/components/LoyaltyComponents';
+import { CafePointsCard, PointsCard, PointsRow } from '../../src/components/LoyaltyComponents';
 import { EmptyState, ErrorState, ListSkeleton } from '../../src/components/ui/States';
 
 /**
@@ -31,6 +31,10 @@ export default function PointsScreen(): React.JSX.Element {
           <View style={{ gap: theme.spacing.base }}>
             {points.data ? <PointsCard summary={points.data} /> : <ListSkeleton rows={1} />}
 
+            {points.data?.cafes.map((cafe) => (
+              <CafePointsCard key={cafe.businessId} cafe={cafe} />
+            ))}
+
             {points.data ? (
               <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
                 <Metric label="Earned" value={points.data.lifetimeEarned} />
@@ -53,7 +57,7 @@ export default function PointsScreen(): React.JSX.Element {
               compact
               icon="sparkles-outline"
               title="No points yet"
-              body="Earn Grab Points on your first order."
+              body="Earn points at a cafe on your first order there."
             />
           )
         }
@@ -64,6 +68,7 @@ export default function PointsScreen(): React.JSX.Element {
               <PointsRow
                 amount={item.amount}
                 description={item.description}
+                businessName={item.businessName}
                 createdAt={item.createdAt}
               />
             </View>
