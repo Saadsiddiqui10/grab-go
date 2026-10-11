@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -17,7 +17,9 @@ import { useTheme } from '../../src/theme';
 import { greeting, firstName } from '../../src/lib/format';
 import { useAuthStore } from '../../src/stores/auth';
 import { useLocationStore } from '../../src/stores/location';
+import { discoveryCategories } from '@grabgo/config';
 import {
+  cafeRailQuery,
   useActiveOrders,
   useCafeRail,
   useFavourites,
@@ -58,38 +60,27 @@ function HomeScreen(): React.JSX.Element {
 
   const [refreshing, setRefreshing] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
-
-  const locationParams = origin ? { latitude: origin.latitude, longitude: origin.longitude } : {};
-  const tagParams = category ? { tags: category } : {};
+  // The tab highlight follows a tap at once; the page (colours, wallpaper,
+  // cards) follows `shown`, which React renders in the background and can
+  // abandon if another tab is tapped first. Without this the whole page
+  // re-rendered before the tap even showed, which read as "nothing happened".
+  const shown = useDeferredValue(category);
 
   const activeOrders = useActiveOrders();
-  const favourites = useFavourites();
-  const toggleFavourite = useToggleFavourite();
 
-  const nearby = useCafeRail('nearby', {
-    ...locationParams,
-    ...tagParams,
-    sort: origin ? 'NEAREST' : 'RECOMMENDED',
-  });
-
-  const fastest = useCafeRail('fastest', {
-    ...locationParams,
-    ...tagParams,
-    sort: 'FASTEST',
-    openNow: true,
-  });
-
-  const popular = useCafeRail('popular', {
-    ...locationParams,
-    ...tagParams,
-    sort: 'POPULAR',
-  });
-
-  const favouriteCafes = useCafeRail(
-    'favourites',
-    { ...locationParams, favouritesOnly: true },
-    (favourites.data?.length ?? 0) > 0,
-  );
+  // Once Home has settled, quietly load every category's rails, so switching
+  // tabs shows real cafés straight away rather than waiting on the network.
+  useEffect(() => {
+    const handle = requestIdleCallback(() => {
+      for (const slug of [null, ...discoveryCategories.filter((entry) => entry.isLive).map((entry) => entry.slug)]) {
+        const params = railParams(slug, origin);
+        for (const key of ['nearby', 'fastest', 'popular'] as const) {
+          void client.prefetchQuery(cafeRailQuery(key, params[key]));
+        }
+      }
+    });
+    return () => cancelIdleCallback(handle);
+  }, [client, origin?.latitude, origin?.longitude]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -97,36 +88,15 @@ function HomeScreen(): React.JSX.Element {
     setRefreshing(false);
   }, [client]);
 
-  const favouriteIds = new Set(favourites.data ?? []);
-
-  const openCafe = (cafe: BusinessSummary): void => {
-    router.push(`/cafe/${cafe.id}`);
-  };
-
   // The selected category's colours theme the page and its cards.
   const coloursFor = useCategoryColors();
   // Breakfast has its own full look (its Figma frame); other categories
   // tint the page in their colour.
   const breakfastSkin = useBreakfastSkin();
-  const skin = category === 'breakfast' ? breakfastSkin : null;
-  const tint = category && !skin ? coloursFor(category) : null;
+  const skin = shown === 'breakfast' ? breakfastSkin : null;
+  const tint = shown && !skin ? coloursFor(shown) : null;
   const pageColour = useBlendedColor(skin?.page ?? tint?.wash ?? theme.colors.background);
-  const categoryEnter = useEnterOnChange(category);
-
-  const railProps = (cafe: BusinessSummary): React.ComponentProps<typeof CafeCard> => ({
-    tint,
-    skin,
-    pour: category,
-    cafe,
-    layout: 'rail',
-    onPress: () => openCafe(cafe),
-    isFavourite: favouriteIds.has(cafe.id),
-    onToggleFavourite: () =>
-      toggleFavourite.mutate({
-        businessId: cafe.id,
-        isFavourite: favouriteIds.has(cafe.id),
-      }),
-  });
+  const categoryEnter = useEnterOnChange(shown);
 
   return (
     // The page colour blends into the new category's wash rather than snapping.
@@ -144,8 +114,8 @@ function HomeScreen(): React.JSX.Element {
           >
             {skin ? (
               <SunPattern />
-            ) : tint && category ? (
-              <CategoryPattern slug={category} colour={tint.ink} />
+            ) : tint && shown ? (
+              <CategoryPattern slug={shown} colour={tint.ink} />
             ) : null}
           </Animated.View>
         }
@@ -288,44 +258,18 @@ function HomeScreen(): React.JSX.Element {
         ) : null}
 
         {/* -------------------------------------------------------------- rails */}
-        {/* The cafes fade and rise in after a category switch. */}
-        <Animated.View style={enterStyle(categoryEnter)}>
-          <Rail
-            title="Fastest pickup"
-            subtitle="Ready in minutes"
-            query={fastest}
-            renderCard={railProps}
-            tone={skin?.text ?? tint?.ink}
-            subtone={skin?.muted}
+        {/* The cafes fade and rise in after a category switch. Memoised on
+            the deferred category alone, so a tap re-renders only the tabs. */}
+        {/* While the next category renders, the current cards dim, so the tap
+            visibly registered; only this wrapper re-renders on the tap. */}
+        <View style={{ opacity: shown === category ? 1 : 0.55 }}>
+          <CafeRails
+            shown={shown}
+            latitude={origin?.latitude}
+            longitude={origin?.longitude}
+            enter={categoryEnter}
           />
-
-          <Rail
-            title={origin ? 'Nearby' : 'Cafes in Karachi'}
-            subtitle={origin ? 'Closest to you right now' : 'Popular across the city'}
-            query={nearby}
-            renderCard={railProps}
-            tone={skin?.text ?? tint?.ink}
-            subtone={skin?.muted}
-          />
-
-          {favourites.data && favourites.data.length > 0 ? (
-            <Rail
-              title="Your favourites"
-              query={favouriteCafes}
-              renderCard={railProps}
-              tone={skin?.text ?? tint?.ink}
-              subtone={skin?.muted}
-            />
-          ) : null}
-
-          <Rail
-            title="Popular near you"
-            query={popular}
-            renderCard={railProps}
-            tone={skin?.text ?? tint?.ink}
-            subtone={skin?.muted}
-          />
-        </Animated.View>
+        </View>
 
         <View
           style={{
@@ -340,6 +284,89 @@ function HomeScreen(): React.JSX.Element {
       </ScrollScreen>
     </Animated.View>
   );
+}
+
+/** The Home rails for one category: their data, cards and favourites. */
+const CafeRails = memo(function CafeRails({
+  shown,
+  latitude,
+  longitude,
+  enter,
+}: {
+  shown: string | null;
+  latitude: number | undefined;
+  longitude: number | undefined;
+  enter: Animated.Value;
+}): React.JSX.Element {
+  const router = useRouter();
+  const origin = latitude !== undefined && longitude !== undefined ? { latitude, longitude } : null;
+  const favourites = useFavourites();
+  const toggleFavourite = useToggleFavourite();
+
+  const rails = railParams(shown, origin);
+  const nearby = useCafeRail('nearby', rails.nearby);
+  const fastest = useCafeRail('fastest', rails.fastest);
+  const popular = useCafeRail('popular', rails.popular);
+  const favouriteCafes = useCafeRail(
+    'favourites',
+    { ...(origin ?? {}), favouritesOnly: true },
+    (favourites.data?.length ?? 0) > 0,
+  );
+
+  const coloursFor = useCategoryColors();
+  const breakfastSkin = useBreakfastSkin();
+  const skin = shown === 'breakfast' ? breakfastSkin : null;
+  const tint = shown && !skin ? coloursFor(shown) : null;
+  const favouriteIds = new Set(favourites.data ?? []);
+
+  const railProps = (cafe: BusinessSummary): React.ComponentProps<typeof CafeCard> => ({
+    tint,
+    skin,
+    pour: shown,
+    cafe,
+    layout: 'rail',
+    onPress: () => router.push(`/cafe/${cafe.id}`),
+    isFavourite: favouriteIds.has(cafe.id),
+    onToggleFavourite: () =>
+      toggleFavourite.mutate({ businessId: cafe.id, isFavourite: favouriteIds.has(cafe.id) }),
+  });
+  const tone = skin?.text ?? tint?.ink;
+  const subtone = skin?.muted;
+
+  return (
+    <Animated.View style={enterStyle(enter)}>
+      <Rail title="Fastest pickup" subtitle="Ready in minutes" query={fastest} renderCard={railProps} tone={tone} subtone={subtone} />
+      <Rail
+        title={origin ? 'Nearby' : 'Cafes in Karachi'}
+        subtitle={origin ? 'Closest to you right now' : 'Popular across the city'}
+        query={nearby}
+        renderCard={railProps}
+        tone={tone}
+        subtone={subtone}
+      />
+      {favourites.data && favourites.data.length > 0 ? (
+        <Rail title="Your favourites" query={favouriteCafes} renderCard={railProps} tone={tone} subtone={subtone} />
+      ) : null}
+      <Rail title="Popular near you" query={popular} renderCard={railProps} tone={tone} subtone={subtone} />
+    </Animated.View>
+  );
+});
+
+/**
+ * The three rails' filters for a category (or none), shared by the screen and
+ * the prefetch so both hit exactly the same cache entries.
+ */
+function railParams(
+  slug: string | null,
+  origin: { latitude: number; longitude: number } | null,
+) {
+  const location = origin ? { latitude: origin.latitude, longitude: origin.longitude } : {};
+  const tags = slug ? { tags: slug } : {};
+  return {
+    nearby: { ...location, ...tags, sort: origin ? ('NEAREST' as const) : ('RECOMMENDED' as const) },
+    fastest: { ...location, ...tags, sort: 'FASTEST' as const, openNow: true },
+    popular: { ...location, ...tags, sort: 'POPULAR' as const },
+  };
 }
 
 /**

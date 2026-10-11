@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -138,16 +139,26 @@ export function useRequestListing(): UseMutationResult<ListingSummary, Error, st
 }
 
 /** A single rail on the home screen. */
+/** One Home rail's query, shared by the hook and the category prefetch. */
+export function cafeRailQuery(key: string, params: DiscoverParams) {
+  return {
+    queryKey: ['rail', key, params] as const,
+    queryFn: async () => (await catalog.discover({ ...params, limit: 10 })).items,
+    staleTime: 60 * 1000,
+  };
+}
+
 export function useCafeRail(
   key: string,
   params: DiscoverParams,
   enabled = true,
 ): UseQueryResult<BusinessSummary[]> {
   return useQuery({
-    queryKey: ['rail', key, params] as const,
-    queryFn: async () => (await catalog.discover({ ...params, limit: 10 })).items,
+    ...cafeRailQuery(key, params),
     enabled,
-    staleTime: 60 * 1000,
+    // Switching category keeps the current cards on screen until the new ones
+    // arrive, instead of collapsing every rail to skeletons in between.
+    placeholderData: keepPreviousData,
   });
 }
 
