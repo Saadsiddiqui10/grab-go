@@ -11,6 +11,7 @@ import { Card, Divider, ListRow } from '../src/components/ui/Surface';
 import { Button } from '../src/components/ui/Button';
 import { SearchInput } from '../src/components/ui/Input';
 import { ErrorState, ListSkeleton } from '../src/components/ui/States';
+import { goBack } from '../src/lib/navigation';
 
 /**
  * Choose your area.
@@ -47,7 +48,7 @@ export default function LocationScreen(): React.JSX.Element {
     if (granted) {
       // GPS takes precedence over a previously chosen area.
       await setManualArea(null);
-      router.back();
+      goBack(router);
     }
   };
 
@@ -82,7 +83,7 @@ export default function LocationScreen(): React.JSX.Element {
                   title="Clear selected area"
                   onPress={() => {
                     void setManualArea(null);
-                    router.back();
+                    goBack(router);
                   }}
                 />
               </>
@@ -132,7 +133,7 @@ export default function LocationScreen(): React.JSX.Element {
                         latitude: item.latitude,
                         longitude: item.longitude,
                       });
-                      router.back();
+                      goBack(router);
                     }}
                     right={
                       selected ? (
@@ -146,7 +147,7 @@ export default function LocationScreen(): React.JSX.Element {
           />
         )}
 
-        <Button label="Done" variant="secondary" fullWidth onPress={() => router.back()} />
+        <Button label="Done" variant="secondary" fullWidth onPress={() => goBack(router)} />
       </View>
     </Screen>
   );

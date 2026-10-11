@@ -28,6 +28,7 @@ import { categoryArt, FigmaIcon } from '../src/design/assets';
 import { selectionFeedback } from '../src/lib/feedback';
 import { formatPrepTime } from '../src/lib/format';
 import { CafeLogo } from '../src/components/LoyaltyComponents';
+import { goBack } from '../src/lib/navigation';
 
 /**
  * Every cafe in the city on one map, filterable by the same category tabs as
@@ -156,7 +157,7 @@ export default function MapScreen(): React.JSX.Element {
         <View style={styles.spread}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => goBack(router)}
               accessibilityRole="button"
               accessibilityLabel="Go back"
               hitSlop={10}

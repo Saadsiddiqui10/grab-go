@@ -15,6 +15,7 @@ import { Input } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
 import { Card } from '../../src/components/ui/Surface';
 import { LoadingState } from '../../src/components/ui/States';
+import { goBack } from '../../src/lib/navigation';
 
 /**
  * Leave a review.
@@ -52,7 +53,7 @@ export default function ReviewScreen(): React.JSX.Element {
 
       successFeedback();
       await client.invalidateQueries({ queryKey: queryKeys.order(orderId) });
-      router.back();
+      goBack(router);
     } catch (caught) {
       errorFeedback();
       setError(

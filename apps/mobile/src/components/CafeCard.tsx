@@ -129,11 +129,10 @@ export function CafeCard({
           cupTint={skin?.cup ?? tint?.ink}
         />
 
-        {/* A closed cafe stays browsable, but the card says so plainly. */}
+        {/* A closed or paused cafe stays browsable: the photo dims, and the
+            status row below says why (once, not twice). */}
         {closed || paused ? (
-          <View style={[styles.scrim, { backgroundColor: theme.colors.overlay }]}>
-            <Badge label={closed ? 'Closed' : 'Not taking orders'} tone="neutral" />
-          </View>
+          <View style={[styles.scrim, { backgroundColor: theme.colors.overlay }]} />
         ) : null}
 
         {onToggleFavourite ? (
@@ -195,7 +194,9 @@ export function CafeCard({
         ) : null}
 
         <View style={styles.metaRow}>
-          {cafe.isOpenNow ? (
+          {paused ? (
+            <Badge label="Not taking orders" tone="neutral" dot />
+          ) : cafe.isOpenNow ? (
             <Badge
               label={
                 cafe.busyUntilMinutes

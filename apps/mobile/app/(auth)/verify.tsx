@@ -10,6 +10,7 @@ import { KeyboardScreen } from '../../src/components/ui/Screen';
 import { Text } from '../../src/components/ui/Text';
 import { Input, OtpInput } from '../../src/components/ui/Input';
 import { Button } from '../../src/components/ui/Button';
+import { goBack } from '../../src/lib/navigation';
 
 const RESEND_SECONDS = 30;
 
@@ -133,7 +134,7 @@ export default function VerifyScreen(): React.JSX.Element {
           <Text variant="title1">Enter your code</Text>
           <Text variant="body" color="textMuted">
             Sent to {phone}.{' '}
-            <Text variant="subhead" color="primary" onPress={() => router.back()}>
+            <Text variant="subhead" color="primary" onPress={() => goBack(router, '/(auth)/welcome')}>
               Change number
             </Text>
           </Text>

@@ -36,6 +36,7 @@ import { IconButton } from '../../src/components/ui/Button';
 import { CartBar, MenuItemRow } from '../../src/components/MenuComponents';
 import { EmptyState, ErrorState, ListSkeleton } from '../../src/components/ui/States';
 import { useReducedMotion } from '../../src/lib/motion';
+import { goBack } from '../../src/lib/navigation';
 
 /**
  * Cafe profile and menu.
@@ -300,7 +301,7 @@ export default function CafeScreen(): React.JSX.Element {
         <IconButton
           icon="chevron-back"
           label="Go back"
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           background="rgba(0,0,0,0.4)"
           tone="textOnPrimary"
         />

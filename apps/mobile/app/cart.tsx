@@ -15,6 +15,7 @@ import { StickyFooter } from '../src/components/ui/Screen';
 import { TotalsRows } from '../src/components/OrderComponents';
 import { PromoSummary } from '../src/components/LoyaltyComponents';
 import { EmptyState, LoadingState } from '../src/components/ui/States';
+import { goBack } from '../src/lib/navigation';
 
 /**
  * The cart.
@@ -64,7 +65,7 @@ export default function CartScreen(): React.JSX.Element {
         style: 'destructive',
         onPress: () => {
           clear();
-          router.back();
+          goBack(router);
         },
       },
     ]);

@@ -14,6 +14,7 @@ import { Stepper } from '../../src/components/ui/Surface';
 import { StickyFooter } from '../../src/components/ui/Screen';
 import { ModifierGroup, VariantGroup } from '../../src/components/MenuComponents';
 import { ErrorState, LoadingState } from '../../src/components/ui/States';
+import { goBack } from '../../src/lib/navigation';
 
 /**
  * Item customisation.
@@ -63,7 +64,7 @@ export default function ItemScreen(): React.JSX.Element {
       <ErrorState
         title="Item unavailable"
         body="Sorry, this item is no longer available."
-        onRetry={() => router.back()}
+        onRetry={() => goBack(router)}
       />
     );
   }
@@ -131,7 +132,7 @@ export default function ItemScreen(): React.JSX.Element {
       );
     }
 
-    router.back();
+    goBack(router);
   };
 
   const add = (): void => {
