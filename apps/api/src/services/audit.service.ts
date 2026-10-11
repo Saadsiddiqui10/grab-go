@@ -11,6 +11,7 @@ import type { DbOrTx } from '../db';
  */
 
 export const AuditAction = {
+  BUSINESS_CREATED: 'business.created',
   BUSINESS_APPROVED: 'business.approved',
   BUSINESS_REJECTED: 'business.rejected',
   BUSINESS_SUSPENDED: 'business.suspended',

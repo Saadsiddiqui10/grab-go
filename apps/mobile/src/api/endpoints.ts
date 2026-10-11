@@ -86,8 +86,20 @@ export const auth = {
   changePassword: (body: { currentPassword: string; newPassword: string }) =>
     api.post<{ changed: boolean }>('/auth/password/change', body),
 
+  /**
+   * Always answers "sent", whether or not the account exists. Development
+   * builds of the API also return the token, because no email provider is
+   * configured there.
+   */
   requestPasswordReset: (email: string) =>
-    api.post<{ sent: boolean }>('/auth/password/reset-request', { email }, { auth: false }),
+    api.post<{ sent: boolean; devToken?: string }>(
+      '/auth/password/reset-request',
+      { email },
+      { auth: false },
+    ),
+
+  confirmPasswordReset: (body: { token: string; password: string }) =>
+    api.post<{ reset: boolean }>('/auth/password/reset', body, { auth: false }),
 
   deleteAccount: (password?: string) =>
     api.delete<{ deleted: boolean }>('/auth/account', {

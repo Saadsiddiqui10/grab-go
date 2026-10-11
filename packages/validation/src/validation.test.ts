@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { phoneSchema, passwordSchema, emailSchema } from './common';
-import { createOrderSchema, cartLineSchema } from './orders';
+import { createOrderSchema, cartLineSchema, pickupMethodSchema, vehiclePlateSchema } from './orders';
 import { menuModifierSchema, openingHourSchema } from './catalog';
-import { promotionSchema } from './loyalty';
+import { merchantRewardSchema, promotionSchema, rewardSchema } from './loyalty';
 import { formatZodError } from './format';
 
 describe('phoneSchema', () => {
@@ -227,5 +227,49 @@ describe('formatZodError', () => {
     if (!result.success) {
       expect(Object.keys(formatZodError(result.error))).toContain('lines[0].quantity');
     }
+  });
+});
+
+describe('curbside pickup', () => {
+  it('normalises the plates people actually type', () => {
+    expect(vehiclePlateSchema.parse(' khi 4521 ')).toBe('KHI 4521');
+    expect(vehiclePlateSchema.parse('bkr-729')).toBe('BKR-729');
+    expect(vehiclePlateSchema.parse('LEA1234')).toBe('LEA1234');
+  });
+
+  it('rejects plates the runner could not match to a car', () => {
+    for (const input of ['', 'K', '-ABC', 'ABC-', 'AB#12', 'A'.repeat(17)]) {
+      expect(vehiclePlateSchema.safeParse(input).success).toBe(false);
+    }
+  });
+
+  it('defaults to walking in, and needs a plate for the car', () => {
+    expect(pickupMethodSchema.parse(undefined)).toEqual({ method: 'WALK_IN' });
+    expect(pickupMethodSchema.safeParse({ method: 'CURBSIDE' }).success).toBe(false);
+    expect(
+      pickupMethodSchema.parse({ method: 'CURBSIDE', vehiclePlate: 'khi 1', vehicleDetails: 'White Corolla' }),
+    ).toEqual({ method: 'CURBSIDE', vehiclePlate: 'KHI 1', vehicleDetails: 'White Corolla' });
+  });
+});
+
+describe('cafe rewards', () => {
+  it('requires a cafe on every admin-created reward', () => {
+    const reward = { name: 'Rs. 150 off', pointsRequired: 100, type: 'FIXED_DISCOUNT', discountAmount: 15000 };
+    expect(rewardSchema.safeParse(reward).success).toBe(false);
+    expect(rewardSchema.safeParse({ ...reward, businessId: 'biz_espresso_lab' }).success).toBe(true);
+  });
+
+  it('takes the cafe from the route for merchants, and still checks the value', () => {
+    expect(
+      merchantRewardSchema.safeParse({ name: 'Free drink', pointsRequired: 200, type: 'FREE_ITEM' }).success,
+    ).toBe(false);
+    expect(
+      merchantRewardSchema.safeParse({
+        name: 'Free drink',
+        pointsRequired: 200,
+        type: 'FREE_ITEM',
+        freeItemMenuItemIds: ['item_flat_white'],
+      }).success,
+    ).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import {
   ApiError,
   Badge,
   Button,
+  CafeProfileEditor,
   Card,
   DAY_NAMES,
   Dialog,
@@ -12,7 +13,6 @@ import {
   PageHeader,
   QueryState,
   SelectField,
-  TextAreaField,
   TextField,
   Toast,
   Toggle,
@@ -20,7 +20,7 @@ import {
   minutesToTimeInput,
   timeInputToMinutes,
 } from '@grabgo/ui';
-import { merchantApi, type MerchantBusiness } from '../api';
+import { api, merchantApi } from '../api';
 import { useDashboard } from '../store';
 
 /**
@@ -65,8 +65,9 @@ export function SettingsPage(): React.JSX.Element {
 
       {/* ------------------------------------------------------- profile */}
       {isManager ? (
-        <ProfileCard
+        <CafeProfileEditor
           key={business.id}
+          client={api}
           business={business}
           onSaved={() => {
             setToast('Cafe profile saved');
@@ -641,139 +642,5 @@ function InviteStaffDialog({
         </>
       )}
     </Dialog>
-  );
-}
-
-/**
- * What customers see about the cafe: its name, blurb, phone, address and the
- * logo that sits on its map pin. Images are linked by URL; there is no upload
- * service yet, so the field takes a hosted image (the cafe's website, Instagram
- * CDN, etc.) and previews it before saving.
- */
-function ProfileCard({
-  business,
-  onSaved,
-}: {
-  business: MerchantBusiness;
-  onSaved: () => void;
-}): React.JSX.Element {
-  const [name, setName] = useState(business.name);
-  const [description, setDescription] = useState(business.description ?? '');
-  const [phone, setPhone] = useState(business.phone ?? '');
-  const [addressLine, setAddressLine] = useState(business.addressLine);
-  const [logoUrl, setLogoUrl] = useState(business.logoUrl ?? '');
-  const [coverImageUrl, setCoverImageUrl] = useState(business.coverImageUrl ?? '');
-  const [logoBroken, setLogoBroken] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const isUrl = (value: string): boolean => value === '' || /^https?:\/\/\S+$/i.test(value.trim());
-
-  const save = useMutation({
-    mutationFn: () =>
-      merchantApi.updateProfile(business.id, {
-        name: name.trim(),
-        description: description.trim() || null,
-        phone: phone.trim() || null,
-        addressLine: addressLine.trim(),
-        logoUrl: logoUrl.trim() || null,
-        coverImageUrl: coverImageUrl.trim() || null,
-      }),
-    onSuccess: () => {
-      setError(null);
-      onSaved();
-    },
-    onError: (caught) =>
-      setError(caught instanceof ApiError ? caught.displayMessage : 'Could not save the profile'),
-  });
-
-  const invalid =
-    name.trim().length < 2 || addressLine.trim().length < 4 || !isUrl(logoUrl) || !isUrl(coverImageUrl);
-
-  return (
-    <Card>
-      <div className="gg-stack">
-        <h3>Cafe profile</h3>
-        <p className="gg-muted gg-small">
-          Shown on your cafe page. Your logo also appears on your pin on the customer map.
-        </p>
-
-        <div className="gg-grid">
-          <TextField label="Cafe name" value={name} onChange={setName} required />
-          <TextField label="Phone" value={phone} onChange={setPhone} placeholder="+92 21 ..." />
-        </div>
-        <TextField label="Address" value={addressLine} onChange={setAddressLine} required />
-        <TextAreaField
-          label="About"
-          value={description}
-          onChange={setDescription}
-          rows={3}
-          placeholder="What you're known for"
-        />
-
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1 }}>
-            <TextField
-              label="Logo image URL"
-              value={logoUrl}
-              onChange={(next) => {
-                setLogoUrl(next);
-                setLogoBroken(false);
-              }}
-              placeholder="https://..."
-              hint="A square image works best. Leave blank to show your initials."
-              error={!isUrl(logoUrl) ? 'Enter a link starting with https://' : logoBroken ? 'That image could not be loaded' : undefined}
-            />
-          </div>
-          <div
-            aria-label="Logo preview"
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 14,
-              overflow: 'hidden',
-              border: '1px solid var(--gg-border, #ddd)',
-              display: 'grid',
-              placeItems: 'center',
-              flexShrink: 0,
-              marginBottom: 24,
-            }}
-          >
-            {logoUrl && isUrl(logoUrl) && !logoBroken ? (
-              <img
-                src={logoUrl}
-                alt=""
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                onError={() => setLogoBroken(true)}
-              />
-            ) : (
-              <strong>
-                {business.name
-                  .split(/\s+/)
-                  .filter((word) => /[A-Za-z0-9]/.test(word[0] ?? ''))
-                  .slice(0, 2)
-                  .map((word) => word[0]?.toUpperCase())
-                  .join('')}
-              </strong>
-            )}
-          </div>
-        </div>
-
-        <TextField
-          label="Cover image URL"
-          value={coverImageUrl}
-          onChange={setCoverImageUrl}
-          placeholder="https://..."
-          error={!isUrl(coverImageUrl) ? 'Enter a link starting with https://' : undefined}
-        />
-
-        {error ? <p className="gg-error gg-small">{error}</p> : null}
-
-        <div>
-          <Button onClick={() => save.mutate()} disabled={invalid || logoBroken} loading={save.isPending}>
-            Save profile
-          </Button>
-        </div>
-      </div>
-    </Card>
   );
 }

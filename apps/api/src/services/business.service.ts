@@ -10,7 +10,7 @@ import {
 } from '@grabgo/core';
 import type { BusinessDetail, BusinessSummary, Menu, PickupSlot } from '@grabgo/types';
 import type { DiscoverQuery } from '@grabgo/validation';
-import { Prisma } from '@prisma/client';
+import { type Prisma } from '@prisma/client';
 import type { DbOrTx } from '../db';
 import {
   businessWithRelations,

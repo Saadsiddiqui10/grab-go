@@ -320,6 +320,17 @@ export async function registerAdminRoutes(app: FastifyInstance): Promise<void> {
       return { businessId: business.id, ownerId: owner.id, temporaryPassword };
     });
 
+    // The temporary password is returned once to the admin and never logged.
+    await recordAudit(prisma, {
+      actorUserId: principal.userId,
+      action: AuditAction.BUSINESS_CREATED,
+      targetType: 'business',
+      targetId: result.businessId,
+      newValue: { name: body.name, slug, ownerEmail: body.ownerEmail, ownerId: result.ownerId },
+      ipAddress: clientIp(request) ?? null,
+      userAgent: userAgent(request) ?? null,
+    });
+
     return reply.code(201).send(success(result));
   });
 

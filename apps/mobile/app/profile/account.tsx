@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { passwordSchema } from '@grabgo/validation';
 import { useTheme } from '../../src/theme';
 import { useAuthStore } from '../../src/stores/auth';
 import { useUpdateProfile } from '../../src/api/hooks';
@@ -14,7 +15,7 @@ import { Button } from '../../src/components/ui/Button';
 import { Card, Divider, ListRow } from '../../src/components/ui/Surface';
 
 /**
- * Personal details and account deletion.
+ * Personal details, password and account deletion.
  *
  * Deletion is behind a two-step confirmation and is explicit about what happens:
  * the account goes, the order records stay, because those are financial records
@@ -162,6 +163,8 @@ export default function AccountScreen(): React.JSX.Element {
         onPress={save}
       />
 
+      {user.hasPassword ? <ChangePasswordSection /> : null}
+
       <View style={{ marginTop: theme.spacing.xl, gap: theme.spacing.sm }}>
         <Text variant="overline" color="textMuted">
           DANGER ZONE
@@ -186,5 +189,97 @@ export default function AccountScreen(): React.JSX.Element {
         </Card>
       </View>
     </ScrollScreen>
+  );
+}
+
+/**
+ * Changing the password signs every device out (the API revokes all sessions,
+ * so a stolen session dies with the old password), including this one.
+ */
+function ChangePasswordSection(): React.JSX.Element {
+  const theme = useTheme();
+  const router = useRouter();
+  const signOut = useAuthStore((state) => state.signOut);
+
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [errors, setErrors] = useState<{ current?: string; next?: string; confirm?: string }>({});
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (): Promise<void> => {
+    const found: typeof errors = {};
+    if (!current) found.current = 'Enter your current password';
+    const strength = passwordSchema.safeParse(next);
+    if (!strength.success) found.next = strength.error.issues[0]?.message ?? 'Choose a stronger password';
+    else if (next === current) found.next = 'Choose a password you have not used here';
+    if (confirm !== next) found.confirm = 'The passwords do not match';
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+
+    setBusy(true);
+    try {
+      await authApi.changePassword({ currentPassword: current, newPassword: next });
+      successFeedback();
+      Alert.alert('Password changed', 'You have been signed out everywhere. Sign in with your new password.');
+      await signOut();
+      router.replace('/(auth)/email');
+    } catch (caught) {
+      errorFeedback();
+      if (caught instanceof ApiError && caught.code === 'INVALID_CREDENTIALS') {
+        setErrors({ current: caught.displayMessage });
+      } else {
+        setErrors({
+          next: caught instanceof ApiError ? caught.displayMessage : 'We could not change your password.',
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={{ marginTop: theme.spacing.lg, gap: theme.spacing.md }}>
+      <SectionTitle subtitle="You will be signed out on every device.">Password</SectionTitle>
+      <Input
+        label="Current password"
+        secureTextEntry
+        autoCapitalize="none"
+        textContentType="password"
+        autoComplete="current-password"
+        value={current}
+        onChangeText={setCurrent}
+        error={errors.current}
+      />
+      <Input
+        label="New password"
+        placeholder="At least 10 characters"
+        secureTextEntry
+        autoCapitalize="none"
+        textContentType="newPassword"
+        autoComplete="new-password"
+        value={next}
+        onChangeText={setNext}
+        error={errors.next}
+      />
+      <Input
+        label="Confirm new password"
+        secureTextEntry
+        autoCapitalize="none"
+        textContentType="newPassword"
+        autoComplete="new-password"
+        value={confirm}
+        onChangeText={setConfirm}
+        error={errors.confirm}
+      />
+      <Button
+        label="Change password"
+        variant="secondary"
+        fullWidth
+        loading={busy}
+        disabled={!current || !next || !confirm}
+        onPress={() => void submit()}
+      />
+    </View>
   );
 }

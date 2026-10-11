@@ -20,8 +20,6 @@ const TOPICS: NotificationTopic[] = [
   'PRODUCT_NEWS',
 ];
 
-const CHANNELS: NotificationChannel[] = ['PUSH', 'EMAIL', 'SMS'];
-
 export async function updateProfile(
   userId: string,
   input: {

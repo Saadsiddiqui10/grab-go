@@ -20,6 +20,7 @@ export default function AuthLayout(): React.JSX.Element {
       <Stack.Screen name="phone" options={{ title: '' }} />
       <Stack.Screen name="verify" options={{ title: '' }} />
       <Stack.Screen name="email" options={{ title: '' }} />
+      <Stack.Screen name="forgot" options={{ title: '' }} />
     </Stack>
   );
 }

@@ -2,9 +2,10 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
+  Linking,
   Platform,
   Pressable,
-  ScrollView,
+  type ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -13,7 +14,9 @@ import { CafeImage } from '../../src/components/CafeCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { formatDistance } from '@grabgo/core';
+import { dayOfWeekIn, formatDistance, formatMinutesOfDay } from '@grabgo/core';
+import { LAUNCH_CITY } from '@grabgo/config';
+import type { BusinessDetail } from '@grabgo/types';
 import { useTheme } from '../../src/theme';
 import { formatPrepTime } from '../../src/lib/format';
 import {
@@ -44,6 +47,128 @@ import { useReducedMotion } from '../../src/lib/motion';
  */
 
 const HEADER_HEIGHT = 240;
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Where the cafe is and when it opens: the address with directions and a call
+ * button, and the week's hours (collapsed to today's until tapped) with today
+ * picked out. Today is worked out in the cafe's city, not the phone's zone.
+ */
+function CafeInfo({ cafe }: { cafe: BusinessDetail }): React.JSX.Element {
+  const theme = useTheme();
+  const [showWeek, setShowWeek] = useState(false);
+  const today = dayOfWeekIn(new Date(), LAUNCH_CITY.timezone);
+
+  const hoursFor = (day: number): string => {
+    const row = cafe.openingHours.find((entry) => entry.dayOfWeek === day);
+    if (!row || row.isClosed || row.opensAt === null || row.closesAt === null) return 'Closed';
+    return `${formatMinutesOfDay(row.opensAt)} – ${formatMinutesOfDay(row.closesAt)}`;
+  };
+
+  const openDirections = (): void => {
+    const query = `${cafe.latitude},${cafe.longitude}`;
+    void Linking.openURL(
+      Platform.select({
+        ios: `maps://?daddr=${query}`,
+        android: `geo:${query}?q=${query}(${encodeURIComponent(cafe.name)})`,
+        default: `https://maps.google.com/?q=${query}`,
+      }),
+    );
+  };
+
+  // Monday first, the way the week reads in Pakistan.
+  const week = [1, 2, 3, 4, 5, 6, 0];
+
+  return (
+    <Card padded={false} style={{ marginTop: 4 }}>
+      <View style={{ padding: theme.spacing.base, gap: theme.spacing.md }}>
+        <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
+          <Ionicons name="location-outline" size={20} color={theme.colors.primary} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="subhead">{cafe.addressLine}</Text>
+            {cafe.areaName && !cafe.addressLine.includes(cafe.areaName) ? (
+              <Text variant="footnote" color="textMuted">
+                {[cafe.areaName, cafe.cityName].filter(Boolean).join(', ')}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+          <Pressable
+            onPress={openDirections}
+            accessibilityRole="button"
+            style={[styles.infoButton, { borderColor: theme.colors.border }]}
+          >
+            <Ionicons name="navigate-outline" size={16} color={theme.colors.primary} />
+            <Text variant="footnote" color="primary">
+              Directions
+            </Text>
+          </Pressable>
+          {cafe.phone ? (
+            <Pressable
+              onPress={() => void Linking.openURL(`tel:${cafe.phone}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`Call ${cafe.name}`}
+              style={[styles.infoButton, { borderColor: theme.colors.border }]}
+            >
+              <Ionicons name="call-outline" size={16} color={theme.colors.primary} />
+              <Text variant="footnote" color="primary">
+                Call
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      <Divider />
+
+      <Pressable
+        onPress={() => setShowWeek((open) => !open)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showWeek }}
+        accessibilityLabel={`Opening hours. Today ${hoursFor(today)}`}
+        style={{ padding: theme.spacing.base, gap: theme.spacing.sm }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
+          <Ionicons name="time-outline" size={20} color={theme.colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text variant="subhead">Today · {hoursFor(today)}</Text>
+          </View>
+          <Ionicons
+            name={showWeek ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={theme.colors.textMuted}
+          />
+        </View>
+
+        {showWeek ? (
+          <View style={{ gap: 6, paddingLeft: 32 }}>
+            {week.map((day) => (
+              <View key={day} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text
+                  variant="footnote"
+                  color={day === today ? 'textPrimary' : 'textSecondary'}
+                  style={day === today ? { fontWeight: '700' } : undefined}
+                >
+                  {DAY_NAMES[day]}
+                </Text>
+                <Text
+                  variant="footnote"
+                  color={day === today ? 'textPrimary' : 'textSecondary'}
+                  style={day === today ? { fontWeight: '700' } : undefined}
+                >
+                  {hoursFor(day)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </Pressable>
+    </Card>
+  );
+}
 
 /**
  * This cafe's loyalty card in one line: the points held here and the next
@@ -279,6 +404,8 @@ export default function CafeScreen(): React.JSX.Element {
 
               <CafeRewardsStrip businessId={cafe.data.id} onPress={() => router.push('/(tabs)/rewards')} />
 
+              <CafeInfo cafe={cafe.data} />
+
               {/* A closed cafe stays fully browsable; ordering is what waits. */}
               {!cafe.data.isOpenNow ? (
                 <Card style={{ backgroundColor: theme.colors.surfaceMuted, marginTop: 4 }}>
@@ -444,6 +571,15 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(20,16,14,0.25)',
+  },
+  infoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   factRow: {
     flexDirection: 'row',

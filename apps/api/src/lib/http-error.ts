@@ -5,7 +5,7 @@ import {
   type ApiSuccess,
   type PaginationMeta,
 } from '@grabgo/types';
-import { DomainError, isDomainError, type Result } from '@grabgo/core';
+import { type DomainError, isDomainError, type Result } from '@grabgo/core';
 import type { FieldErrors } from '@grabgo/validation';
 
 /**

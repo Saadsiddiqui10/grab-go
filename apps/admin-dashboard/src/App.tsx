@@ -6,6 +6,7 @@ import { ApiError, Badge, Button, Card, TextField } from '@grabgo/ui';
 import { useAdmin } from './store';
 import { UsersPage } from './pages/Users';
 import { BusinessesPage } from './pages/Businesses';
+import { CafeEditorPage } from './pages/CafeEditor';
 import { ListingsPage } from './pages/Listings';
 import { OrdersPage } from './pages/Orders';
 import { LoyaltyPage } from './pages/Loyalty';
@@ -66,6 +67,7 @@ export function App(): React.JSX.Element {
                 />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/cafes" element={<BusinessesPage />} />
+                <Route path="/cafes/:businessId" element={<CafeEditorPage />} />
                 <Route path="/listings" element={<ListingsPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/loyalty" element={<LoyaltyPage />} />

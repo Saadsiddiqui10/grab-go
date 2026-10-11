@@ -68,6 +68,7 @@ export function toUserProfile(user: UserWithProfile): UserProfile {
     fullName: user.profile?.fullName ?? '',
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
+    hasPassword: user.passwordHash !== null,
     phone: user.phone,
     phoneVerified: user.phoneVerifiedAt !== null,
     avatarUrl: user.profile?.avatarUrl ?? null,

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ApiError,
@@ -24,6 +25,7 @@ import { adminApi, type AdminBusinessRow } from '../api';
  * and its owner account together and shows the temporary password once.
  */
 export function BusinessesPage(): React.JSX.Element {
+  const navigate = useNavigate();
   const client = useQueryClient();
 
   const [search, setSearch] = useState('');
@@ -187,6 +189,9 @@ export function BusinessesPage(): React.JSX.Element {
                     </td>
                     <td>
                       <div className="gg-row" style={{ justifyContent: 'flex-end' }}>
+                        <Button size="sm" variant="secondary" onClick={() => navigate(`/cafes/${business.id}`)}>
+                          Manage
+                        </Button>
                         {business.status === 'ACTIVE' ? (
                           <Button
                             size="sm"

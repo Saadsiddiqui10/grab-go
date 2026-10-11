@@ -73,6 +73,8 @@ export interface UserProfile {
   fullName: string;
   email: string | null;
   emailVerified: boolean;
+  /** False for phone, Google and Apple accounts: there is no password to change. */
+  hasPassword: boolean;
   phone: string | null;
   phoneVerified: boolean;
   avatarUrl: string | null;

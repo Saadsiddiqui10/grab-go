@@ -29,11 +29,17 @@ const signInSchema = z.object({
   password: z.string().min(1, 'Enter your password'),
 });
 
-const signUpSchema = z.object({
-  fullName: fullNameSchema,
-  email: emailSchema,
-  password: passwordSchema,
-});
+const signUpSchema = z
+  .object({
+    fullName: fullNameSchema,
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'The passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 type Mode = 'SIGN_IN' | 'SIGN_UP';
 
@@ -48,9 +54,9 @@ export default function EmailScreen(): React.JSX.Element {
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const form = useForm<{ fullName?: string; email: string; password: string }>({
+  const form = useForm<{ fullName?: string; email: string; password: string; confirmPassword?: string }>({
     resolver: zodResolver(mode === 'SIGN_IN' ? signInSchema : signUpSchema),
-    defaultValues: { fullName: '', email: '', password: '' },
+    defaultValues: { fullName: '', email: '', password: '', confirmPassword: '' },
     mode: 'onBlur',
   });
 
@@ -186,6 +192,38 @@ export default function EmailScreen(): React.JSX.Element {
             />
           )}
         />
+
+        {mode === 'SIGN_UP' ? (
+          <Controller
+            control={form.control}
+            name="confirmPassword"
+            render={({ field, fieldState }) => (
+              <Input
+                label="Confirm password"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="new-password"
+                textContentType="newPassword"
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+        ) : (
+          <Button
+            label="Forgot password?"
+            variant="ghost"
+            size="sm"
+            onPress={() =>
+              router.push({
+                pathname: '/(auth)/forgot',
+                params: form.getValues('email') ? { email: form.getValues('email') } : {},
+              })
+            }
+          />
+        )}
 
         {pendingReferralCode && mode === 'SIGN_UP' ? (
           <Card style={{ backgroundColor: theme.colors.primarySubtle }}>

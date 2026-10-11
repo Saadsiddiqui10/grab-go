@@ -10,8 +10,10 @@
  * without triggering the module's side effects.
  */
 import { TurboModuleRegistry } from 'react-native';
+// Type-only: erased at build time, so it does not load the native module.
+import type * as MapLibre from '@maplibre/maplibre-react-native';
 
-type MapLibreModule = typeof import('@maplibre/maplibre-react-native');
+type MapLibreModule = typeof MapLibre;
 
 export type MapUnavailableReason = 'native-module';
 
@@ -31,7 +33,9 @@ export function loadMapLibre(): MapLibreModule | null {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // Loaded lazily so a build without the native module degrades to no map
+    // instead of crashing at import.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     cached = require('@maplibre/maplibre-react-native') as MapLibreModule;
   } catch {
     cached = null;

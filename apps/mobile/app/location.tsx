@@ -42,7 +42,7 @@ export default function LocationScreen(): React.JSX.Element {
       )
     : areas;
 
-  const useCurrentLocation = async (): Promise<void> => {
+  const locateMe = async (): Promise<void> => {
     const granted = await requestAndLocate();
     if (granted) {
       // GPS takes precedence over a previously chosen area.
@@ -71,7 +71,7 @@ export default function LocationScreen(): React.JSX.Element {
                   : 'Sorts cafes by how close they are'
               }
               tone="primary"
-              onPress={() => void useCurrentLocation()}
+              onPress={() => void locateMe()}
             />
 
             {manualArea ? (

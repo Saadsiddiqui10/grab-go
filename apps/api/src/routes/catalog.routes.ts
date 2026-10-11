@@ -2,8 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { discoverQuerySchema, searchMenuQuerySchema } from '@grabgo/validation';
 import { prisma } from '../db';
 import { parse } from '../lib/validate';
-import { success } from '../lib/http-error';
-import { optionalAuth } from '../lib/auth-context';
+import { notFound, success } from '../lib/http-error';
+import { optionalAuth, type Principal } from '../lib/auth-context';
 import {
   discoverBusinesses,
   getBusinessDetail,
@@ -90,12 +90,15 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
         : null,
     );
 
+    assertVisible(business, principal);
     return success(business);
   });
 
   app.get('/cafes/:idOrSlug/menu', async (request) => {
     const { idOrSlug } = request.params as { idOrSlug: string };
+    const principal = await optionalAuth(request);
     const business = await loadBusiness(prisma, idOrSlug);
+    assertVisible(business, principal);
     return success(await getMenu(prisma, business.id));
   });
 
@@ -138,4 +141,17 @@ export async function registerCatalogRoutes(app: FastifyInstance): Promise<void>
 
     return success(results);
   });
+}
+
+/**
+ * A cafe that is pending review, suspended or rejected is not public: it 404s
+ * for customers, while its own staff and admins can still preview it.
+ */
+function assertVisible(
+  business: { id: string; status: string },
+  principal: Principal | null,
+): void {
+  if (business.status === 'ACTIVE') return;
+  if (principal?.isAdmin || principal?.businesses.includes(business.id)) return;
+  throw notFound('That cafe');
 }

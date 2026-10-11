@@ -1,4 +1,4 @@
-import { ApiErrorCode } from '@grabgo/types';
+import { type ApiErrorCode } from '@grabgo/types';
 
 /**
  * A rule violation the caller can act on, as opposed to a bug.
