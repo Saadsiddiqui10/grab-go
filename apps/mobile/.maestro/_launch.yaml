@@ -1,0 +1,11 @@
+# Shared start: a development build opens Expo's launcher, so the dev-client
+# link starts the app straight from Metro (launching first and then opening
+# the link races, and the app can be left closed). Against a store build,
+# replace this with a plain `launchApp`.
+appId: com.saadsiddiqui10.grabandgo
+---
+- stopApp
+- openLink: grabgo://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081
+- extendedWaitUntil:
+    visible: "Search cafes, coffee, breakfast.*"
+    timeout: 60000

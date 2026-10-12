@@ -34,6 +34,7 @@
     "test:core": "npm run test -w @grabgo/core",
     "test:e2e": "npm run test:e2e -w @grabgo/api",
     "test:web": "playwright test -c e2e-web/playwright.config.ts",
+    "test:app": "maestro test apps/mobile/.maestro",
     "typecheck": "npm run build:packages && npm run typecheck -w @grabgo/api && npm run typecheck -w @grabgo/merchant-dashboard && npm run typecheck -w @grabgo/admin-dashboard && npm run typecheck -w @grabgo/mobile",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

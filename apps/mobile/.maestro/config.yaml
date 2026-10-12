@@ -1,0 +1,8 @@
+# The app journeys run by `npm run test:app` (needs a booted simulator with
+# the app installed, Metro on :8081 and the API running). `_launch.yaml` is a
+# shared step, not a journey.
+flows:
+  - home-categories.yaml
+  - map-and-back.yaml
+  - rewards.yaml
+  - order-curbside.yaml

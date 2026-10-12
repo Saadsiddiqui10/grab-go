@@ -100,6 +100,7 @@ function CafeInfo({ cafe }: { cafe: BusinessDetail }): React.JSX.Element {
           <Pressable
             onPress={openDirections}
             accessibilityRole="button"
+            accessibilityLabel={`Directions to ${cafe.name}`}
             style={[styles.infoButton, { borderColor: theme.colors.border }]}
           >
             <Ionicons name="navigate-outline" size={16} color={theme.colors.primary} />
@@ -240,8 +241,9 @@ export default function CafeScreen(): React.JSX.Element {
   const quote = useCartQuote();
 
   const isFavourite = useMemo(
-    () => new Set(favourites.data ?? []).has(id ?? ''),
-    [favourites.data, id],
+    // By the café's real id: the route may carry its slug.
+    () => new Set(favourites.data ?? []).has(cafe.data?.id ?? id ?? ''),
+    [favourites.data, cafe.data?.id, id],
   );
 
   // The cover fades and the title bar solidifies as the customer scrolls, so the
@@ -510,7 +512,7 @@ export default function CafeScreen(): React.JSX.Element {
                           onPress={() =>
                             router.push({
                               pathname: '/item/[itemId]',
-                              params: { itemId: item.id, cafeId: id ?? '' },
+                              params: { itemId: item.id, cafeId: cafe.data?.id ?? id ?? '' },
                             })
                           }
                         />
@@ -525,7 +527,9 @@ export default function CafeScreen(): React.JSX.Element {
       </Animated.ScrollView>
 
       {/* ------------------------------------------------------- cart bar */}
-      {cartCount > 0 && cartBusinessId === id ? (
+      {/* Compared with the café's real id: the route may carry its slug (a
+          shared link), while the cart always stores the id. */}
+      {cartCount > 0 && cartBusinessId === (cafe.data?.id ?? id) ? (
         <View
           style={{
             position: 'absolute',

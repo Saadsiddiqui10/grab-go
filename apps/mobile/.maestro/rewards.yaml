@@ -1,0 +1,8 @@
+# Rewards are grouped by café card, with somewhere to start earning.
+appId: com.saadsiddiqui10.grabandgo
+name: Rewards by café
+---
+- runFlow: _launch.yaml
+- tapOn: "Rewards"
+- assertVisible: "YOUR POINTS"
+- assertVisible: "Espresso Lab.*"

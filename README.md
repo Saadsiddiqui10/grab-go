@@ -134,7 +134,9 @@ provider declines it.
 npm test          # 320+ unit tests across core, validation and the API
 npm run lint      # ESLint (typescript-eslint + React hooks rules)
 npm run verify    # lint, typecheck everything, then the unit tests
-npm run test:e2e  # 39 end-to-end journeys against a real database (needs Postgres)
+npm run test:e2e  # 39 end-to-end API journeys against a real database (needs Postgres)
+npm run test:web  # 10 browser tests of both dashboards (Playwright, Chromium)
+npm run test:app  # 4 app journeys on the iOS Simulator (Maestro)
 ```
 
 | Suite                 | What it covers                                                                   |
@@ -143,6 +145,8 @@ npm run test:e2e  # 39 end-to-end journeys against a real database (needs Postgr
 | `packages/validation` | Phone, URL and number-plate rules, cart and menu rules, café rewards, promo constraints |
 | `apps/api`            | Env guards, JWT and pickup tokens, error mapping, auth on every protected route, payments, POS signing, secrets and endpoint safety |
 | `apps/api/e2e`        | Accounts, ordering, per-café loyalty, POS delivery and retries, café onboarding and admin. See [`apps/api/e2e/README.md`](apps/api/e2e/README.md) |
+| `e2e-web`             | The café order board live (desktop and iPad), rewards, POS settings, admin café management |
+| `apps/mobile/.maestro`| Category tabs, map and back, rewards, a full curbside order. See [`apps/mobile/.maestro/README.md`](apps/mobile/.maestro/README.md) |
 
 The domain tests are the ones that matter most. They cover the things that cost
 real money if they are wrong: that a discount can never exceed the basket, that

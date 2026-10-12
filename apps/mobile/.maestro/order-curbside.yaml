@@ -1,0 +1,34 @@
+# The core loop, signed in: pick a drink, choose "bring to my car" with a
+# plate (refused without one), pay, and see the confirmation with the plate.
+appId: com.saadsiddiqui10.grabandgo
+name: Order brought to the car
+---
+- runFlow: _launch.yaml
+# Straight to the café by its link (slugs work as ids): tapping a card on Home
+# depends on which rails are showing, and a card under the tab bar takes the
+# tap meant for it.
+- openLink: grabgo://cafe/espresso-lab-clifton
+- extendedWaitUntil:
+    visible: "Rewards here.*"
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Flat White.*"
+- tapOn: "Flat White.*"
+- tapOn: "Add to cart.*"
+- tapOn: "View cart.*"
+- tapOn: "Choose pickup time.*"
+- tapOn: "Bring to my car.*"
+- tapOn: "Pay and place order.*"
+- assertVisible: "Add your number plate so the cafe can find your car."
+- tapOn:
+    id: "vehicle-plate"
+- inputText: "mae 123"
+- hideKeyboard
+- tapOn: "Pay and place order.*"
+- extendedWaitUntil:
+    visible: "Order confirmed"
+    timeout: 20000
+- scrollUntilVisible:
+    element: "Brought to your car"
+# The plate is read out letter by letter to VoiceOver.
+- assertVisible: "Number plate M A E.*"

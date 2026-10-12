@@ -1,0 +1,18 @@
+# The map: list view, the preview card, and Back from a map opened by link
+# (which used to log an unhandled GO_BACK and do nothing).
+appId: com.saadsiddiqui10.grabandgo
+name: Map, list and back
+---
+- runFlow: _launch.yaml
+- openLink: grabgo://map
+- extendedWaitUntil:
+    visible: "What are you craving?"
+    timeout: 15000
+- tapOn: "Show cafes as a list"
+- assertVisible: "Espresso Lab.*"
+- assertVisible: "Chai Wala Express.*"
+- tapOn: "Show cafes as a map"
+- tapOn: "Go back"
+- extendedWaitUntil:
+    visible: "Search cafes, coffee, breakfast.*"
+    timeout: 5000

@@ -1,0 +1,22 @@
+# Home: switching category shows that category's cafés, and switching back
+# clears it. (The two bugs reported on these tabs: nothing showing on the
+# first tap, and a blank stage between categories.)
+appId: com.saadsiddiqui10.grabandgo
+name: Home category tabs
+---
+- runFlow: _launch.yaml
+- tapOn: "Chai"
+- extendedWaitUntil:
+    visible: "Karak & Co.*"
+    timeout: 5000
+- assertNotVisible: "Espresso Lab.*"
+- tapOn: "Coffee"
+- extendedWaitUntil:
+    visible: "Espresso Lab.*"
+    timeout: 5000
+# Tapping the selected tile clears the filter.
+- tapOn: "Coffee"
+- assertVisible:
+    text: "Coffee"
+    selected: false
+- assertVisible: "Cafes in Karachi"

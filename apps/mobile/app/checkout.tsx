@@ -309,6 +309,7 @@ export default function CheckoutScreen(): React.JSX.Element {
             <View style={{ gap: theme.spacing.md }}>
               <Input
                 label="Number plate"
+                testID="vehicle-plate"
                 placeholder="e.g. KHI-4521"
                 value={plate}
                 onChangeText={(text) => {
