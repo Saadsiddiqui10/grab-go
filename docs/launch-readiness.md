@@ -15,7 +15,8 @@ are outside the code built so far:
 2. **No email is sent.** Password reset works end to end, but in production
    nobody would receive the reset code.
 3. **It has not been run as a release build, on real phones, or on Android.**
-   Everything was verified on the iOS simulator in development mode.
+   Everything was verified on the iOS simulator in development mode (see
+   [Android](#android) below).
 
 With the payment gateway, an email sender, SMS credentials, the privacy and
 terms pages, and a release-build test on devices (a couple of weeks of focused
@@ -38,7 +39,7 @@ café onboarding.
 | **Café dashboard** | Rewards manager, profile and logo, POS connection with delivery health and retry, live-order banner when the POS is behind, tablet layout (stages side by side, 44 px touch targets) |
 | **Admin dashboard** | Edit any café's profile and menu (same editors as the café's), café-scoped rewards and points adjustments, per-café balances |
 | **POS** | Transactional outbox, signed webhook adapter, retries with backoff, SSRF-safe endpoints, encrypted secrets; [integration guide](pos-integration.md) for POS developers |
-| **Quality** | ESLint across the monorepo, 325 unit tests, 39 end-to-end journeys against a real database |
+| **Quality** | ESLint across the monorepo, 325 unit tests, 39 API journeys against a real database, 10 browser tests of the dashboards (Playwright), 4 app journeys on the simulator (Maestro) |
 
 ## How it was verified
 
@@ -50,6 +51,11 @@ café onboarding.
   paused cafés, double payment), per-café loyalty, POS delivery and retries
   against a real receiver, café onboarding and admin. See
   [`apps/api/e2e/README.md`](../apps/api/e2e/README.md).
+- **Browser (10, Playwright):** an order arriving live on the café board and
+  handed over with the pickup code, curbside plates on tickets, the board on
+  an iPad, rewards, POS settings, admin café management.
+- **App (4, Maestro, iOS Simulator):** category tabs, map list and back,
+  rewards by café, a full curbside order from café link to confirmation.
 - **By hand:** every customer flow on the iOS simulator, both dashboards in
   the browser at desktop, iPad and phone widths.
 - **Lint and type-checks** clean on all four apps and five packages.
@@ -65,6 +71,14 @@ café onboarding.
   temporary password).
 - POS endpoints are guarded against SSRF and DNS rebinding; POS secrets are
   encrypted at rest and never returned after creation.
+
+### Bugs found by the new test suites, fixed
+
+- The café board's Completed column showed the oldest orders ever collected,
+  never today's, so recent pickups could not be closed.
+- A café opened from a shared link (by its slug) never showed the cart bar,
+  and its favourite heart showed the wrong state.
+- The café page's Directions button read ", Directions" to VoiceOver.
 
 ## What is left
 
@@ -95,6 +109,33 @@ café onboarding.
 - Vendor-specific POS adapters as real integrations come along.
 - Browser tests for the dashboards and device tests for the app (Playwright,
   Maestro); the API journeys are covered today.
+
+## Android
+
+The app is built for Android as well as iOS: Android has its own tab bar
+(iOS uses the native one), every iOS symbol has an Android icon fallback,
+Sign in with Apple is hidden there, and the package id, adaptive icon and
+permissions are configured. **But it has never been built or run on Android.**
+The redesign, the map and the animations were only checked on iOS. Before an
+Android release:
+
+1. Install Android Studio and create an emulator (needs a Google sign-in to
+   accept the SDK licences), then `npx expo run:android` or an EAS build.
+2. Add Firebase Cloud Messaging credentials (`google-services.json`) for push.
+3. Walk every flow, then run the Maestro journeys against the emulator (same
+   flows, same app id).
+4. Test on a mid-range Android phone: the category wallpapers and pour
+   animations are the heaviest drawing in the app.
+
+Expect a few days of fixes; launching iOS first and Android a few weeks later
+is a reasonable plan.
+
+## Growing after launch
+
+How the platform scales from one city to national, and what to change at each
+stage, is in [`scaling.md`](scaling.md). The two changes needed the moment the
+API runs on more than one server: the Socket.IO Redis adapter and rate limits
+in Redis.
 
 ## Known limitations to be aware of
 

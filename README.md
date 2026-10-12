@@ -293,6 +293,7 @@ specifically to prove nothing is hardcoded — launching it is a flag.
 - [`docs/api.md`](docs/api.md) — every endpoint, with the auth each requires
 - [`docs/pos-integration.md`](docs/pos-integration.md) — for a café's POS developer: events, payload, signatures, retries
 - [`docs/production-checklist.md`](docs/production-checklist.md) — what must be true before launch
+- [`docs/scaling.md`](docs/scaling.md) — growing from one city to national, stage by stage
 - [`docs/launch-readiness.md`](docs/launch-readiness.md) — the finalisation report: what was built and verified, and what is left
 - [`apps/api/prisma/schema.prisma`](apps/api/prisma/schema.prisma) — the data model, commented
 
